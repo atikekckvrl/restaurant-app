@@ -18,7 +18,7 @@ const Navbar: React.FC = () => {
         {/* === Logo === */}
         <div
           className="flex flex-col items-start select-none leading-none cursor-pointer"
-          style={{ transform: "translateY(1cm)" }}
+          style={{ transform: "translateY(0.5cm)" }}
         >
           <span className="logo-lal text-4xl tracking-widest text-[#f5d48a] drop-shadow-[0_0_10px_rgba(201,164,92,0.6)]">
             LÂL
@@ -47,15 +47,48 @@ const Navbar: React.FC = () => {
           ))}
         </ul>
 
-        {/* === Mobil Menü Tuşu === */}
-        <button
-          onClick={() => setMenuOpen(!menuOpen)}
-          className="md:hidden px-5 py-2 rounded-xl border border-[#c9a45c]/40 
-                     bg-black/50 backdrop-blur-sm text-[#f5d48a] font-semibold uppercase tracking-[0.2em]
-                     hover:bg-[#c9a45c]/20 hover:text-[#fff3d1] transition-all duration-300"
-        >
-          {menuOpen ? "Kapat ✕" : "Menü ☰"}
-        </button>
+       {/* === Mobil Menü Tuşu  === */}
+<button
+  onClick={() => setMenuOpen(!menuOpen)}
+  className="md:hidden transition-all duration-500"
+  style={{
+    width: "65px",
+    height: "50px",
+    background: "linear-gradient(180deg, rgba(10,10,10,0.95), rgba(26,26,26,0.85))",
+    border: "1.5px solid rgba(201,164,92,0.6)",
+    borderRadius: "8px",
+    color: "#f5d48a",
+    fontSize: "0.75rem",
+    letterSpacing: "0.15em",
+    fontWeight: 600,
+    textShadow: "0 0 5px rgba(201,164,92,0.4)",
+    boxShadow:
+      "0 0 12px rgba(201,164,92,0.25), inset 0 0 6px rgba(201,164,92,0.15)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    backdropFilter: "blur(5px)",
+    cursor: "pointer",
+  }}
+  onMouseEnter={(e) => {
+    e.currentTarget.style.background =
+      "linear-gradient(180deg, rgba(30,30,30,1), rgba(10,10,10,0.95))";
+    e.currentTarget.style.boxShadow =
+      "0 0 18px rgba(201,164,92,0.5), inset 0 0 8px rgba(201,164,92,0.3)";
+  }}
+  onMouseLeave={(e) => {
+    e.currentTarget.style.background =
+      "linear-gradient(180deg, rgba(10,10,10,0.95), rgba(26,26,26,0.85))";
+    e.currentTarget.style.boxShadow =
+      "0 0 12px rgba(201,164,92,0.25), inset 0 0 6px rgba(201,164,92,0.15)";
+  }}
+>
+  {menuOpen ? "✕" : "MENU☰"}
+</button>
+
+
+
+
       </nav>
 
       {/* === Geliştirilmiş Profesyonel Açılır Menü === */}
