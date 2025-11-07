@@ -81,8 +81,8 @@ body::before {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   text-shadow:
-    0 3px 6px rgba(0, 0, 0, 0.6),
-    0 0 15px rgba(201, 164, 92, 0.3);
+    0 3px 6px rgba(0, 0, 0, 0.4),
+    0 0 15px rgba(201, 164, 92, 0.4);
   position: relative;
 }
 
@@ -109,8 +109,8 @@ body::before {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   text-shadow:
-    0 0 6px rgba(255, 215, 160, 0.4),
-    0 2px 4px rgba(0, 0, 0, 0.4);
+    0 0 6px rgba(255, 215, 160, 0.6),
+    0 2px 4px rgba(0, 0, 0, 0.3);
   margin-top: 25px;
   position: relative;
 }

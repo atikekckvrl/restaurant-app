@@ -16,7 +16,6 @@ const Footer: React.FC = () => {
           zIndex: 50,
         }}
       >
-        {/* Altın Çerçeveli Arka Plan */}
         <div
           style={{
             width: "65px",
@@ -34,7 +33,6 @@ const Footer: React.FC = () => {
             animation: "glowRotate 12s infinite linear",
           }}
         >
-          {/* Küçültülmüş SVG */}
           <img
             src="/kadeh.svg"
             alt="Kadeh Amblemi"
@@ -48,7 +46,6 @@ const Footer: React.FC = () => {
           />
         </div>
 
-        {/* Marka Yazısı */}
         <span
           style={{
             fontFamily: "Cinzel, serif",
@@ -63,6 +60,34 @@ const Footer: React.FC = () => {
         >
           LÂL — Fine Taste & Elegance
         </span>
+      </div>
+
+      {/* === Ortada: Çalışma Saatleri === */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: "28px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          background: "rgba(25, 25, 25, 0.55)",
+          border: "1px solid rgba(255,255,255,0.1)",
+          color: "#e7dec0",
+          padding: "10px 22px",
+          borderRadius: "14px",
+          fontSize: "0.85rem",
+          fontFamily: "Cinzel, serif",
+          letterSpacing: "0.5px",
+          textAlign: "center",
+          backdropFilter: "blur(8px)",
+          boxShadow: "0 0 15px rgba(0,0,0,0.4)",
+          zIndex: 9998,
+        }}
+      >
+        <div style={{ fontWeight: 500, color: "#d4b873", marginBottom: "2px" }}>
+          Çalışma Saatleri
+        </div>
+        <div style={{ opacity: 0.9 }}>Pzt – Cmt: 10:00 – 00:00</div>
+        <div style={{ opacity: 0.9 }}>Pazar: 12:00 – 00:00</div>
       </div>
 
       {/* === Sağ Alt — Telif === */}
