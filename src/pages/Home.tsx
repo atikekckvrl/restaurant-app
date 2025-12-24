@@ -1,115 +1,111 @@
 import React from "react";
-import heroBg from "../assets/hero.jpg"; // ✅ Görseli doğru şekilde içeri al
+import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { Sparkles, ChevronRight } from "lucide-react";
 
 const Home: React.FC = () => {
+  const navigate = useNavigate();
+
   return (
-    <section
-      className="relative flex flex-col justify-center items-center min-h-screen px-20 pb-20 overflow-hidden"
-      style={{
-        backgroundImage: `url(${heroBg})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }}
-    >
-      {/* 🔥 Koyu katman */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          backgroundColor: "rgba(0,0,0,0.60)",
-          zIndex: 2,
-        }}
-      ></div>
-
-      {/* === İçerik === */}
-      <div className="relative z-10 text-center max-w-3xl space-y-10 animate-zoomFade">
-        <h1 className="text-5xl md:text-7xl font-serif tracking-[0.12em] leading-tight">
-          <span className="block text-[#d6b97a] shimmer-elegant drop-shadow-[0_0_15px_rgba(0,0,0,0.6)]">
-            LÂL RESTAURANT’A
-          </span>
-          <span className="block mt-2 text-[#f0e2c6] font-light italic drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)] fade-up">
-            Hoş Geldiniz
-          </span>
-        </h1>
-
-        <p
-          className="text-gray-300/85 leading-relaxed max-w-xl mx-auto font-light italic border-l-[3px] border-[#bfa364]/60 pl-5 tracking-wide"
-          style={{ fontSize: "19px" }}
+    <section className="relative w-full min-h-screen flex items-center justify-center overflow-hidden bg-black text-white">
+      
+      {/* Background Layer - High Impact Visibility */}
+      <div className="absolute inset-0 z-0 overflow-hidden">
+        <motion.div 
+          initial={{ scale: 1.1, opacity: 0 }}
+          animate={{ scale: 1, opacity: 0.9 }}
+          transition={{ duration: 2.5, ease: "easeOut" }}
+          className="absolute inset-0"
         >
-          Zarafet ve lezzetin buluşma noktası. <br />
-          <span className="pl-8 text-[#f1e8cc]/90">
-            Geleneksel tatları modern dokunuşlarla yeniden yorumladık; her
-            lokmada sade bir ihtişam sizi karşılayacak.
-          </span>
-        </p>
-
-        {/* === Butonlar === */}
-        <div className="flex flex-wrap justify-center gap-8 pt-10">
-          <a
-            href="/menu"
-            className="relative overflow-hidden font-medium tracking-wider text-[1.1rem]
-                       text-[#cbb278]/90 border border-[#cbb278]/80 rounded-[2.5rem]
-                       flex items-center justify-center
-                       transition-all duration-300 hover:bg-[#cbb278]/10 hover:scale-[1.05] hover:text-[#f5e3b1]
-                       shadow-[0_0_15px_rgba(203,178,120,0.15)]"
-            style={{
-              width: "150px",
-              height: "40px",
-            }}
-          >
-            Menüye Göz At
-          </a>
-
-          <a
-            href="/reservation"
-            className="relative overflow-hidden font-medium tracking-wider text-[1.1rem]
-                       text-[#cbb278]/90 border border-[#cbb278]/80 rounded-[2.5rem]
-                       flex items-center justify-center
-                       transition-all duration-300 hover:bg-[#cbb278]/10 hover:scale-[1.05] hover:text-[#f5e3b1]
-                       shadow-[0_0_15px_rgba(203,178,120,0.15)]"
-            style={{
-              width: "150px",
-              height: "40px",
-            }}
-          >
-            Rezervasyon Yap
-          </a>
-        </div>
+          <img 
+            src="/hero-bg.png" 
+            alt="Luxury LÂL Interior" 
+            className="w-full h-full object-cover brightness-[0.85] contrast-[1.05]"
+          />
+        </motion.div>
+        
+        {/* Professional Overlays - Adjusted for transparency */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/70 z-1" />
+        <div className="absolute inset-0 bg-black/10 z-1" />
+        <div className="absolute inset-0 opacity-[0.04] pointer-events-none z-1" style={{ backgroundImage: `url("https://www.transparenttextures.com/patterns/black-linen.png")` }} />
       </div>
 
-      {/* === Stil === */}
-      <style>
-        {`
-          @keyframes zoomFade {
-            from { opacity: 0; transform: scale(0.95); }
-            to { opacity: 1; transform: scale(1); }
-          }
-          .animate-zoomFade {
-            animation: zoomFade 1.5s ease-out forwards;
-          }
+      {/* Luxury Editorial Frame - Simplified */}
+      <div className="absolute inset-4 md:inset-8 border border-[#c9a45c]/25 pointer-events-none z-50">
+        <div className="absolute top-0 left-0 w-20 h-20 border-t-2 border-l-2 border-[#c9a45c]/40" />
+        <div className="absolute top-0 right-0 w-20 h-20 border-t-2 border-r-2 border-[#c9a45c]/40" />
+        <div className="absolute bottom-0 left-0 w-20 h-20 border-b-2 border-l-2 border-[#c9a45c]/40" />
+        <div className="absolute bottom-0 right-0 w-20 h-20 border-b-2 border-r-2 border-[#c9a45c]/40" />
+      </div>
 
-          @keyframes shimmerElegant {
-            0% { background-position: -200px 0; }
-            100% { background-position: 200px 0; }
-          }
-          .shimmer-elegant {
-            background: linear-gradient(90deg, #bfa364 0%, #e9d8a6 50%, #bfa364 100%);
-            background-size: 200% auto;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            animation: shimmerElegant 10s infinite linear;
-            opacity: 0.8;
-          }
+      {/* Main Content Container */}
+      <div className="relative z-10 w-full max-w-[2000px] px-8 flex flex-col items-center justify-center min-h-screen">
+        
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
+          className="flex flex-col items-center text-center w-full"
+        >
+          {/* Branded Seal */}
+          <div className="mb-8 md:mb-12 xl:mb-20">
+            <motion.div 
+              animate={{ rotate: 360 }}
+              transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+              className="w-16 h-16 md:w-20 md:h-20 xl:w-28 xl:h-28 border border-[#c9a45c]/40 rotate-45 flex items-center justify-center bg-[#c9a45c]/10 backdrop-blur-md"
+            >
+              <Sparkles className="w-6 h-6 xl:w-10 xl:h-10 text-[#c9a45c] -rotate-45" />
+            </motion.div>
+            <span className="block text-[10px] md:text-sm xl:text-lg font-montserrat uppercase tracking-[1.2em] text-[#c9a45c] mt-10 font-light drop-shadow-lg">
+              Est. 1924 • Istanbul
+            </span>
+          </div>
 
-          @keyframes fadeUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-          .fade-up {
-            animation: fadeUp 1.8s ease-out forwards;
-          }
-        `}
-      </style>
+          {/* Main Title Group - Massive for Desktop */}
+          <div className="flex flex-col items-center mb-10 md:mb-16 xl:mb-24">
+            <h1 className="text-9xl md:text-[14rem] lg:text-[18rem] xl:text-[24rem] 2xl:text-[28rem] font-serif leading-none tracking-tighter text-white drop-shadow-[0_20px_80px_rgba(0,0,0,0.95)]">
+              LÂL
+            </h1>
+            <div className="mt-[-1rem] md:mt-[-3rem] xl:mt-[-5rem]">
+              <span className="block font-montserrat text-xl md:text-3xl lg:text-4xl xl:text-6xl tracking-[1.5em] md:tracking-[2.2em] uppercase font-light text-[#c9a45c] drop-shadow-2xl">
+                RESTAURANT
+              </span>
+            </div>
+          </div>
+
+          <div className="max-w-5xl mx-auto space-y-10 xl:space-y-16">
+            <div className="h-px w-32 md:w-80 xl:w-[500px] bg-gradient-to-r from-transparent via-[#c9a45c]/70 to-transparent mx-auto" />
+            
+            <p className="text-gray-100 text-2xl md:text-4xl lg:text-5xl xl:text-7xl font-garamond italic leading-tight tracking-wide px-4 drop-shadow-2xl">
+              Anadolu'nun kadim lezzet mirasını, <br className="hidden md:block" />
+              modern bir sanat anlayışıyla yeniden yorumluyoruz.
+            </p>
+
+            {/* Moved Working Hours - Directly under narrative */}
+            <div className="opacity-70 pt-4 xl:pt-8">
+              <p className="text-[10px] md:text-xs xl:text-lg font-montserrat uppercase tracking-[0.4em] text-center text-[#c9a45c]/90">
+                Pzt – Paz: 10:00 – 00:00
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-8 md:gap-12 xl:gap-20 items-center justify-center pt-8 md:pt-16 xl:pt-24">
+              <button
+                onClick={() => navigate("/reservation")}
+                className="group relative px-14 py-6 xl:px-24 xl:py-10 bg-[#c9a45c] text-white font-montserrat font-bold text-xs md:text-sm xl:text-xl tracking-[0.4em] uppercase transition-all duration-500 hover:bg-[#b6974e] hover:shadow-[0_0_70px_rgba(201,164,92,0.8)] active:scale-95 shadow-2xl"
+              >
+                Rezervasyon Yap
+              </button>
+              <button
+                onClick={() => navigate("/menu")}
+                className="group relative px-14 py-6 xl:px-24 xl:py-10 border border-white/50 text-white font-montserrat font-bold text-xs md:text-sm xl:text-xl tracking-[0.4em] uppercase backdrop-blur-md transition-all duration-500 hover:border-[#c9a45c] hover:bg-white/5 active:scale-95"
+              >
+                Menüye Bak
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+
     </section>
   );
 };

@@ -5,51 +5,60 @@ const Navbar: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <header className="fixed top-0 left-0 w-full z-50 bg-black/30 backdrop-blur-md shadow-lg">
-      <nav className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+    <header className="fixed top-0 left-0 w-full z-[100] bg-black/90 backdrop-blur-2xl border-b border-white/5 shadow-2xl">
+      <nav className="max-w-7xl mx-auto px-4 md:px-10 py-3 md:py-6 flex items-center justify-between h-16 md:h-24">
         {/* === Logo === */}
         <div
-          className="flex flex-col items-start select-none leading-none cursor-pointer"
-          style={{ transform: "translateY(0.5cm)" }}
+          onClick={() => navigate("/")}
+          className="flex flex-col items-start select-none leading-none cursor-pointer group active:scale-95 transition-transform"
         >
-          <span className="logo-lal text-4xl tracking-widest text-[#f5d48a] drop-shadow-[0_0_10px_rgba(201,164,92,0.6)]">
+          <span className="logo-lal text-3xl md:text-5xl tracking-widest text-[#f5d48a] drop-shadow-[0_0_15px_rgba(201,164,92,0.5)]">
             LÂL
           </span>
-          <span className="logo-subtitle text-xs text-gray-300 tracking-[0.3em] mt-[-6px]">
+          <span className="logo-subtitle text-[8px] md:text-xs text-gray-400 tracking-[0.4em] mt-0.5 group-hover:text-[#c9a45c] transition-colors">
             RESTAURANT
           </span>
         </div>
 
         {/* === Masaüstü Menü === */}
-        <ul className="hidden md:flex gap-8 items-center">
-          <li><NavLink to="/" className="text-gray-200 hover:text-[#c9a45c] transition">Anasayfa</NavLink></li>
-          <li><NavLink to="/menu" className="text-gray-200 hover:text-[#c9a45c] transition">Menü</NavLink></li>
-          <li><NavLink to="/reservation" className="text-gray-200 hover:text-[#c9a45c] transition">Rezervasyon</NavLink></li>
-          <li><NavLink to="/about" className="text-gray-200 hover:text-[#c9a45c] transition">Hakkımızda</NavLink></li>
-          <li><NavLink to="/contact" className="text-gray-200 hover:text-[#c9a45c] transition">İletişim</NavLink></li>
+        <ul className="hidden md:flex gap-10 items-center font-serif tracking-[0.15em] text-sm uppercase">
+          <li>
+            <NavLink to="/" className={({isActive}) => `transition-all duration-300 ${isActive ? 'text-[#c9a45c]' : 'text-gray-300 hover:text-white'}`}>
+              Anasayfa
+            </NavLink>
+          </li>
+          <li>
+            <NavLink to="/menu" className={({isActive}) => `transition-all duration-300 ${isActive ? 'text-[#c9a45c]' : 'text-gray-300 hover:text-white'}`}>
+              Menü
+            </NavLink>
+          </li>
+          <li>
+            <NavLink to="/reservation" className={({isActive}) => `transition-all duration-300 ${isActive ? 'text-[#c9a45c]' : 'text-gray-300 hover:text-white'}`}>
+              Rezervasyon
+            </NavLink>
+          </li>
+          <li>
+            <NavLink to="/about" className={({isActive}) => `transition-all duration-300 ${isActive ? 'text-[#c9a45c]' : 'text-gray-300 hover:text-white'}`}>
+              Hakkımızda
+            </NavLink>
+          </li>
+          <li>
+            <NavLink to="/contact" className={({isActive}) => `transition-all duration-300 ${isActive ? 'text-[#c9a45c]' : 'text-gray-300 hover:text-white'}`}>
+              İletişim
+            </NavLink>
+          </li>
         </ul>
 
         {/* === Menü Butonu (mobil için) === */}
         <button
           onClick={() => navigate("/menuportal")}
-          className="md:hidden transition-all duration-300"
-          style={{
-            width: "65px",
-            height: "50px",
-            background:
-              "linear-gradient(180deg, rgba(10,10,10,0.95), rgba(26,26,26,0.85))",
-            border: "1.5px solid rgba(201,164,92,0.6)",
-            borderRadius: "8px",
-            color: "#f5d48a",
-            fontSize: "0.75rem",
-            letterSpacing: "0.15em",
-            fontWeight: 600,
-            textShadow: "0 0 5px rgba(201,164,92,0.4)",
-            boxShadow:
-              "0 0 12px rgba(201,164,92,0.25), inset 0 0 6px rgba(201,164,92,0.15)",
-          }}
+          className="md:hidden px-4 h-10 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-b from-[#1a1a1a] to-[#0a0a0a] border border-[#c9a45c]/50 text-[#f5d48a] active:scale-95 transition-all shadow-[0_0_15px_rgba(201,164,92,0.2)]"
         >
-          MENU☰
+          <span className="text-[10px] font-bold tracking-[0.2em] font-serif">KEŞFET</span>
+          <div className="flex flex-col gap-1">
+            <div className="w-4 h-0.5 bg-[#f5d48a] rounded-full"></div>
+            <div className="w-3 h-0.5 bg-[#f5d48a] rounded-full"></div>
+          </div>
         </button>
       </nav>
     </header>

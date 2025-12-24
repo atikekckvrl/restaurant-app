@@ -1,6 +1,7 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
 
+
 const MenuPortal: React.FC = () => {
   return (
     <section
@@ -49,7 +50,7 @@ const MenuPortal: React.FC = () => {
             { to: "/reservation", label: "Rezervasyon" },
             { to: "/about", label: "Hakkımızda" },
             { to: "/contact", label: "İletişim" },
-            { to: "/order", label: "QR ile Sipariş Ver" }, 
+            { to: "/order", label: "Sipariş Ver" }, 
           ].map((link, i) => (
             <NavLink
               key={i}
@@ -102,6 +103,7 @@ const MenuPortal: React.FC = () => {
         rel="stylesheet"
       />
     </section>
+    
   );
 };
 
