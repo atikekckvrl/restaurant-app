@@ -14,7 +14,9 @@ import {
   Flame,
   Utensils,
   IceCream,
-  Wine
+  Wine,
+  AlertTriangle,
+  RefreshCcw
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
@@ -39,6 +41,7 @@ export type Category = {
   id: string;
   name: string;
   icon_name: string;
+  display_order: number;
 };
 
 export type MenuItem = {
@@ -61,6 +64,7 @@ export default function OrderPage() {
   const [showTableModal, setShowTableModal] = useState(true);
   const [tableStatuses, setTableStatuses] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -103,77 +107,103 @@ export default function OrderPage() {
   }, []);
 
   async function fetchTableStatuses() {
-    // 1. Manuel durumları çek
-    const { data: manualData } = await supabase.from('table_status').select('*');
-    
-    // 2. Aktif siparişleri çek (Siparişi olan her zaman 'occupied' görünmeli)
-    const { data: orderData } = await supabase.from('orders').select('table_no').in('status', ['pending', 'preparing', 'served']);
+    try {
+      // 1. Manuel durumları çek
+      const { data: manualData } = await supabase.from('table_status').select('*');
+      
+      // 2. Aktif siparişleri çek (Siparişi olan her zaman 'occupied' görünmeli)
+      const { data: orderData } = await supabase.from('orders').select('table_no').in('status', ['pending', 'preparing', 'served']);
 
-    // 3. Rezervasyonları çek (Sadece bugün ve onaylanmış olanlar)
-    const today = new Date().toISOString().split('T')[0];
-    const { data: resData } = await supabase
-      .from('reservations')
-      .select('table_no, res_time')
-      .eq('status', 'confirmed')
-      .eq('res_date', today);
+      // 3. Rezervasyonları çek (Sadece bugün ve onaylanmış olanlar)
+      const today = new Date().toISOString().split('T')[0];
+      const { data: resData } = await supabase
+        .from('reservations')
+        .select('table_no, res_time')
+        .eq('status', 'confirmed')
+        .eq('res_date', today);
 
-    const statuses: Record<string, string> = {};
-    
-    // Önce manuel durumları yükle
-    manualData?.forEach(row => {
-      statuses[row.table_no] = row.status;
-    });
+      const statuses: Record<string, string> = {};
+      
+      // Önce manuel durumları yükle
+      manualData?.forEach(row => {
+        statuses[row.table_no] = row.status;
+      });
 
-    // Zaman Ayarlı Rezervasyon Mantığı:
-    // Eğer rezervasyon saatine 60 dk'dan az kalmışsa masayı "reserved" yapar
-    const now = new Date();
-    resData?.forEach(res => {
-      if (res.table_no) {
-        const [hours, minutes] = res.res_time.split(':').map(Number);
-        const resTime = new Date();
-        resTime.setHours(hours, minutes, 0, 0);
+      // Zaman Ayarlı Rezervasyon Mantığı:
+      const now = new Date();
+      resData?.forEach(res => {
+        if (res.table_no && res.res_time) {
+          try {
+             const parts = res.res_time.split(':');
+             if (parts.length >= 2) {
+                const hours = parseInt(parts[0], 10);
+                const minutes = parseInt(parts[1], 10);
+                const resTime = new Date();
+                resTime.setHours(hours, minutes, 0, 0);
 
-        const diffInMinutes = (resTime.getTime() - now.getTime()) / (1000 * 60);
+                const diffInMinutes = (resTime.getTime() - now.getTime()) / (1000 * 60);
 
-        // Rezervasyona 60 dk kalmışsa veya saati geçmişse (oturana kadar) "reserved" göster
-        if (diffInMinutes <= 60 && diffInMinutes > -120) { // -120 ekledik ki çok eski rezervasyonlar takılı kalmasın
-          statuses[res.table_no] = 'reserved';
+                if (diffInMinutes <= 60 && diffInMinutes > -120) {
+                  statuses[res.table_no] = 'reserved';
+                }
+             }
+          } catch (e) {
+             console.error("Time parse error", e);
+          }
         }
-      }
-    });
+      });
 
-    // Sonra siparişi olanları 'occupied' (dolu) olarak ez
-    orderData?.forEach(order => {
-      statuses[order.table_no] = 'occupied';
-    });
-    
-    setTableStatuses(statuses);
+      // Sonra siparişi olanları 'occupied' (dolu) olarak ez
+      orderData?.forEach(order => {
+        statuses[order.table_no] = 'occupied';
+      });
+      
+      setTableStatuses(statuses);
+    } catch (err) {
+      console.error("Masa durumları çekilemedi:", err);
+    }
   }
 
   async function fetchData() {
     setLoading(true);
+    setError(null);
     try {
-      await fetchTableStatuses();
+      // 10 saniyelik zaman aşımı (normale döndü)
+      const timeoutMs = 10000;
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Sunucuya bağlanılamadı. İnternet bağlantınızı kontrol edin.")), timeoutMs);
+      });
 
-      const { data: cats, error: catsError } = await supabase
-        .from('categories')
-        .select('*')
-        .order('display_order');
-      
-      if (catsError) throw catsError;
-      setCategories(cats || []);
+      await Promise.race([
+        (async () => {
+          await fetchTableStatuses();
 
-      const { data: items, error: itemsError } = await supabase
-        .from('menu_items')
-        .select('*')
-        .eq('is_available', true);
+          const { data: cats, error: catsError } = await supabase
+            .from('categories')
+            .select('*')
+            .order('display_order');
+          
+          if (catsError) throw catsError;
+          setCategories(cats || []);
+
+          const { data: items, error: itemsError } = await supabase
+            .from('menu_items')
+            .select('*')
+            .eq('is_available', true);
+          
+          if (itemsError) throw itemsError;
+          setMenuItems(items || []);
+          
+          if (cats && cats.length > 0) {
+            setSelectedCategory((prev) => prev || cats[0].name);
+          }
+        })(),
+        timeoutPromise
+      ]);
       
-      if (itemsError) throw itemsError;
-      setMenuItems(items || []);
-      
-      if (cats && cats.length > 0) setSelectedCategory(cats[0].id);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setError(err.message || "Beklenmedik bir hata oluştu.");
     } finally {
       setLoading(false);
     }
@@ -193,6 +223,7 @@ export default function OrderPage() {
 
   const filteredItems = useMemo(() => {
     const selectedCat = categories.find(c => c.name === selectedCategory);
+    if (!selectedCat) return []; // Return empty array if no category is selected or found
     return menuItems.filter(
       (item) =>
         item.category_id === selectedCat?.id &&
@@ -435,6 +466,7 @@ export default function OrderPage() {
           </div>
         </nav>
 
+
         {/* PRODUCTS GRID */}
         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
           {loading ? (
@@ -442,6 +474,28 @@ export default function OrderPage() {
                 <Loader2 className="w-12 h-12 text-[#c9a45c] animate-spin" />
                 <p className="font-serif italic tracking-widest text-[#c9a45c]/80 text-xl">Menü hazırlanıyor...</p>
              </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-6 text-center px-4">
+              <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center border border-red-500/20 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
+                  <AlertTriangle className="w-10 h-10 text-red-500" />
+              </div>
+              <div>
+                  <h3 className="text-2xl font-serif text-red-400 mb-3 tracking-widest uppercase">Bağlantı Hatası</h3>
+                  <p className="text-gray-400 max-w-md text-sm leading-relaxed font-light border-l-2 border-red-500/30 pl-4 text-left mx-auto">
+                    {error}
+                  </p>
+                  <p className="text-xs text-gray-600 mt-4 font-mono">
+                    Sunucunuz uyku modunda olabilir. Supabase panelinden projenizi "Restore" etmeyi deneyin.
+                  </p>
+              </div>
+              <button 
+                  onClick={fetchData} 
+                  className="group flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-[#c9a45c] to-[#a0823c] text-black rounded-xl font-bold hover:scale-105 active:scale-95 transition-all duration-300 shadow-lg mt-4"
+              >
+                  <RefreshCcw size={20} className="group-hover:rotate-180 transition-transform duration-500" />
+                  <span className="tracking-wider">TEKRAR DENE</span>
+              </button>
+            </div>
           ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8 pb-32">
             {filteredItems.map((item, idx) => (

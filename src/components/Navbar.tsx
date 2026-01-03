@@ -5,8 +5,8 @@ const Navbar: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <header className="fixed top-0 left-0 w-full z-[100] bg-black/90 backdrop-blur-2xl border-b border-white/5 shadow-2xl">
-      <nav className="max-w-7xl mx-auto px-4 md:px-10 py-3 md:py-6 flex items-center justify-between h-16 md:h-24">
+    <header className="fixed top-0 left-0 w-full z-[9999] bg-black border-b border-white/5 shadow-2xl" style={{ backgroundColor: "black" }}>
+      <nav className="max-w-7xl mx-auto px-4 md:px-10 py-4 md:py-6 flex items-center justify-between min-h-[5rem] md:h-24">
         {/* === Logo === */}
         <div
           onClick={() => navigate("/")}
@@ -52,12 +52,12 @@ const Navbar: React.FC = () => {
         {/* === Menü Butonu (mobil için) === */}
         <button
           onClick={() => navigate("/menuportal")}
-          className="md:hidden px-4 h-10 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-b from-[#1a1a1a] to-[#0a0a0a] border border-[#c9a45c]/50 text-[#f5d48a] active:scale-95 transition-all shadow-[0_0_15px_rgba(201,164,92,0.2)]"
+          className="md:hidden px-8 h-14 flex items-center justify-center gap-3 rounded-lg bg-gradient-to-b from-[#1a1a1a] to-[#0a0a0a] border border-[#c9a45c]/50 text-[#f5d48a] active:scale-95 transition-all shadow-[0_0_15px_rgba(201,164,92,0.2)]"
         >
-          <span className="text-[10px] font-bold tracking-[0.2em] font-serif">KEŞFET</span>
+          <span className="text-sm font-bold tracking-[0.2em] font-serif">KEŞFET</span>
           <div className="flex flex-col gap-1">
+            <div className="w-5 h-0.5 bg-[#f5d48a] rounded-full"></div>
             <div className="w-4 h-0.5 bg-[#f5d48a] rounded-full"></div>
-            <div className="w-3 h-0.5 bg-[#f5d48a] rounded-full"></div>
           </div>
         </button>
       </nav>
