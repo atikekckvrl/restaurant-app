@@ -4,7 +4,6 @@ import { supabase } from "../lib/supabase";
 import { 
   Clock, 
   ChefHat,
-  Layout,
   X,
   LogOut,
   Loader2,
@@ -15,7 +14,6 @@ import {
   Save,
   Edit,
   Eye,
-  EyeOff,
   Flame,
   Trash2
 } from "lucide-react";
@@ -74,7 +72,6 @@ export default function KitchenPage() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   
   const [loading, setLoading] = useState(true);
-  const [showTableManager, setShowTableManager] = useState(false);
   const [tableStatuses, setTableStatuses] = useState<Record<string, string>>({});
   const [assigningReservation, setAssigningReservation] = useState<Reservation | null>(null);
 
@@ -205,9 +202,8 @@ export default function KitchenPage() {
 
   async function updateTableStatus(tableNo: string, newStatus: string) {
     if (assigningReservation) {
-      await supabase.from('reservations').update({ table_no: tableNo, status: 'confirmed' }).eq('id', assigningReservation.id);
       setAssigningReservation(null);
-      setShowTableManager(false);
+      // setShowTableManager(false); // Kaldırıldı
       fetchReservations();
       fetchTableStatuses();
       return;
@@ -288,302 +284,262 @@ export default function KitchenPage() {
   const handleLogout = async () => await supabase.auth.signOut();
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white px-6 md:px-12 py-8 font-sans relative overflow-x-hidden">
-      {/* --- Modals at the top level for guaranteed visibility --- */}
-      <AnimatePresence>
-        {editingItem && (
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }} 
-            className="fixed inset-0 z-[10000] flex items-center justify-center p-4 md:p-8 bg-black/95 backdrop-blur-3xl"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, y: 20 }} 
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="bg-[#111111] border border-white/10 rounded-[2.5rem] md:rounded-[3.5rem] w-full max-w-[600px] max-h-[75vh] flex flex-col shadow-[0_0_100px_rgba(0,0,0,1)] relative overflow-hidden"
-            >
-               <div className="p-6 md:p-10 border-b border-white/5 flex items-center justify-between bg-black/40 shrink-0">
-                  <h2 className="text-xl md:text-2xl font-serif text-[#f7e6b8] tracking-widest uppercase">Yemek Düzenle</h2>
-                  <button onClick={() => setEditingItem(null)} className="p-3 md:p-4 rounded-full bg-white/5 text-zinc-500 hover:text-white transition-all"><X size={20} /></button>
-               </div>
-               <div className="flex-1 p-6 md:p-10 pb-20 space-y-6 overflow-y-auto custom-scrollbar">
-                  <div className="space-y-2">
-                     <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pl-2">Yemek İsmi</label>
-                     <input type="text" value={editingItem.name} onChange={e => editingItem && setEditingItem({...editingItem, name: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:border-[#c9a45c]/50" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                     <div className="space-y-2">
-                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pl-2">Fiyat (₺)</label>
-                        <input type="number" value={editingItem.price} onChange={e => editingItem && setEditingItem({...editingItem, price: Number(e.target.value)})} className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:border-[#c9a45c]/50" />
-                     </div>
-                     <div className="space-y-2">
-                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pl-2">Kategori</label>
-                        <select value={editingItem.category_id} onChange={e => editingItem && setEditingItem({...editingItem, category_id: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:border-[#c9a45c]/50 appearance-none">
-                           {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-                        </select>
-                     </div>
-                  </div>
-                  <div className="space-y-2">
-                     <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pl-2">Açıklama</label>
-                     <textarea rows={3} value={editingItem.description} onChange={e => editingItem && setEditingItem({...editingItem, description: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:border-[#c9a45c]/50 resize-none" />
-                  </div>
-                  <button disabled={isSaving} onClick={handleSaveItem} className="w-full bg-gradient-to-r from-[#c9a45c] to-[#a0823c] text-black py-4 md:py-5 rounded-2xl font-bold uppercase tracking-[0.2em] flex items-center justify-center gap-3 active:scale-95 transition-all shadow-2xl disabled:opacity-50 mt-4">
-                     {isSaving ? <Loader2 className="animate-spin" /> : <><Save size={20} /> KAYDET</>}
+    <div className="flex flex-col lg:flex-row h-screen bg-[#0a0a0a] text-white font-sans overflow-hidden">
+      {/* --- Sol Panel: Masa Planı --- */}
+      <div className="lg:w-[400px] xl:w-[480px] bg-[#111111] border-r border-white/5 flex flex-col h-[40vh] lg:h-full relative z-20 shadow-[20px_0_50px_rgba(0,0,0,0.5)]">
+         <div className="p-6 md:p-8 border-b border-white/5 bg-black/20 backdrop-blur-xl shrink-0">
+            <h2 className="text-xl font-serif text-[#f7e6b8] tracking-widest uppercase">Masa Planı</h2>
+            <p className="text-zinc-500 text-[10px] mt-2 uppercase tracking-[0.2em] font-bold">
+               {assigningReservation ? `Atama: ${assigningReservation.full_name}` : 'Durum Kontrolü'}
+            </p>
+            {assigningReservation && (
+               <button onClick={() => setAssigningReservation(null)} className="mt-4 w-full py-3 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-500/20 transition-all flex items-center justify-center gap-2">
+                  <X size={14} /> Atamayı İptal Et
+               </button>
+            )}
+         </div>
+         
+         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 bg-[radial-gradient(circle_at_top_left,_#1a1a1a_0%,_#0a0a0a_100%)]">
+            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+               {Array.from({ length: 40 }, (_, i) => i + 1).map((num) => {
+                  const tableNo = num.toString();
+                  const status = tableStatuses[tableNo] || 'available';
+                  return (
+                  <button key={tableNo} onClick={() => updateTableStatus(tableNo, status === 'available' ? 'reserved' : status === 'reserved' ? 'occupied' : 'available')} className={`aspect-square rounded-2xl flex flex-col items-center justify-center transition-all border duration-300 relative group overflow-hidden ${status === 'occupied' ? "bg-red-500/10 border-red-500/40 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.15)]" : status === 'reserved' ? "bg-orange-500/10 border-orange-500/40 text-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.15)]" : "bg-zinc-800/40 border-white/5 text-zinc-500 hover:border-[#c9a45c]/50 hover:bg-[#c9a45c]/5 hover:text-[#c9a45c]"}`}>
+                     <span className="text-lg font-bold font-mono tracking-tighter">{num}</span>
+                     <span className="text-[8px] font-bold mt-1 uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">{status === 'available' ? 'BOŞ' : status === 'occupied' ? 'DOLU' : 'REZE'}</span>
                   </button>
+                  );
+               })}
+            </div>
+         </div>
+      </div>
+
+      {/* --- Sağ Panel: İçerik --- */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden relative bg-[#0a0a0a]">
+         <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#c9a45c]/5 blur-[120px] rounded-full opacity-50" />
+         </div>
+
+         <header className="shrink-0 p-6 md:p-8 border-b border-white/5 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 bg-black/20 backdrop-blur-md relative z-10">
+            <div className="flex items-center gap-6">
+               <motion.div whileHover={{ rotate: 360, scale: 1.1 }} className="w-14 h-14 bg-gradient-to-br from-[#ffe5a5] to-[#c9a45c] rounded-xl flex items-center justify-center text-black shadow-lg shadow-[#c9a45c]/20">
+                  <ChefHat size={28} />
+               </motion.div>
+               <div>
+                  <h1 className="text-2xl md:text-3xl font-serif tracking-widest text-[#f7e6b8] uppercase">Yönetim</h1>
+                  <div className="flex bg-white/5 p-1 rounded-lg mt-2 border border-white/5 self-start">
+                  <button onClick={() => setActiveTab('orders')} className={`px-4 py-2 rounded-md text-[10px] md:text-xs font-bold tracking-widest transition-all ${activeTab === 'orders' ? 'bg-[#c9a45c] text-black shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}>SİPARİŞLER</button>
+                  <button onClick={() => setActiveTab('reservations')} className={`px-4 py-2 rounded-md text-[10px] md:text-xs font-bold tracking-widest transition-all ${activeTab === 'reservations' ? 'bg-[#c9a45c] text-black shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}>REZERVASYONLAR</button>
+                  <button onClick={() => setActiveTab('menu')} className={`px-4 py-2 rounded-md text-[10px] md:text-xs font-bold tracking-widest transition-all ${activeTab === 'menu' ? 'bg-[#c9a45c] text-black shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}>MENÜ</button>
+                  </div>
                </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[#c9a45c]/5 blur-[150px] rounded-full" />
-        <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-white/5 blur-[150px] rounded-full" />
-      </div>
-
-      <div className="max-w-[1700px] mx-auto relative z-10">
-        <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-12 border-b border-white/5 pb-10 gap-8">
-          <div className="flex items-center gap-6">
-            <motion.div whileHover={{ rotate: 360, scale: 1.1 }} className="w-16 h-16 bg-gradient-to-br from-[#ffe5a5] to-[#c9a45c] rounded-2xl flex items-center justify-center text-black shadow-[0_10px_30px_rgba(201,164,92,0.2)]">
-              <ChefHat size={32} />
-            </motion.div>
-            <div>
-              <h1 className="text-3xl md:text-4xl font-serif tracking-widest text-[#f7e6b8] uppercase">Yönetim</h1>
-              <div className="flex bg-white/5 p-1 rounded-xl mt-3 border border-white/5 self-start">
-                <button onClick={() => setActiveTab('orders')} className={`px-4 md:px-6 py-2 rounded-lg text-xs font-bold tracking-widest transition-all ${activeTab === 'orders' ? 'bg-[#c9a45c] text-black shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}>SİPARİŞLER</button>
-                <button onClick={() => setActiveTab('reservations')} className={`px-4 md:px-6 py-2 rounded-lg text-xs font-bold tracking-widest transition-all ${activeTab === 'reservations' ? 'bg-[#c9a45c] text-black shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}>REZERVASYONLAR</button>
-                <button onClick={() => setActiveTab('menu')} className={`px-4 md:px-6 py-2 rounded-lg text-xs font-bold tracking-widest transition-all ${activeTab === 'menu' ? 'bg-[#c9a45c] text-black shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}>MENÜ</button>
-              </div>
             </div>
-          </div>
 
-          <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
-            <button onClick={() => setShowTableManager(true)} className="px-6 py-4 rounded-2xl border border-[#c9a45c]/30 bg-[#c9a45c]/5 text-[#c9a45c] font-bold text-xs uppercase tracking-widest flex items-center gap-3 transition-all hover:bg-[#c9a45c]/10 flex-1 md:flex-none justify-center">
-              <Layout size={18} /> MASA PLANI
-            </button>
-            <div className="bg-zinc-900/50 backdrop-blur-xl px-8 py-3 rounded-2xl border border-white/5 flex flex-col items-center flex-1 md:flex-none">
-              <span className="text-zinc-500 text-[9px] uppercase tracking-[0.2em] font-bold">Kayıtlı</span>
-              <span className="text-2xl font-mono font-bold text-[#f7e6b8]">
-                {activeTab === 'orders' ? orders.length : activeTab === 'reservations' ? reservations.length : menuItems.length}
-              </span>
+            <div className="flex items-center gap-4 w-full xl:w-auto">
+               <div className="bg-zinc-900/50 backdrop-blur-xl px-6 py-3 rounded-xl border border-white/5 flex flex-col items-center flex-1 xl:flex-none min-w-[120px]">
+                  <span className="text-zinc-500 text-[9px] uppercase tracking-[0.2em] font-bold">Aktif Kayıt</span>
+                  <span className="text-xl font-mono font-bold text-[#f7e6b8]">
+                  {activeTab === 'orders' ? orders.length : activeTab === 'reservations' ? reservations.length : menuItems.length}
+                  </span>
+               </div>
+               <button onClick={handleLogout} className="p-4 rounded-xl bg-white/5 text-zinc-500 hover:text-red-400 border border-white/5 transition-colors hover:bg-red-500/10">
+                  <LogOut size={20} />
+               </button>
             </div>
-            <button onClick={handleLogout} className="p-4 rounded-2xl bg-white/5 text-zinc-500 hover:text-red-400 border border-white/5 transition-colors">
-              <LogOut size={20} />
-            </button>
-          </div>
-        </header>
+         </header>
 
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-40">
-             <Loader2 className="w-12 h-12 text-[#c9a45c] animate-spin" />
-          </div>
-        ) : activeTab === 'orders' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-            <AnimatePresence mode="popLayout">
-              {orders.map((order) => (
-                <motion.div key={order.id} layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="bg-zinc-900/30 backdrop-blur-2xl rounded-3xl border border-white/5 flex flex-col overflow-hidden hover:border-[#c9a45c]/30 transition-colors shadow-2xl">
-                  <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-                    <div>
-                      <span className="text-[10px] uppercase tracking-widest text-[#c9a45c] font-bold">Masa</span>
-                      <h2 className="text-3xl font-bold font-mono text-white tracking-tighter">{order.table_no}</h2>
-                    </div>
-                    <div className={`px-4 py-1.5 rounded-full text-[9px] uppercase font-bold border ${getStatusColor(order.status)} drop-shadow-md`}>{order.status}</div>
-                  </div>
-                  <div className="flex-1 p-6 space-y-4 max-h-[250px] overflow-y-auto custom-scrollbar">
-                    {order.items?.map((item) => (
-                      <div key={item.id} className="flex gap-4 items-start group">
-                        <span className="text-[#c9a45c] font-bold font-mono bg-[#c9a45c]/10 w-8 h-8 rounded-lg flex items-center justify-center text-xs shrink-0">x{item.quantity}</span>
-                        <span className="text-gray-300 font-medium text-sm leading-tight group-hover:text-white transition-colors">{item.menu_item?.name}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="p-4 bg-black/40 flex flex-col gap-2">
-                    {order.status === 'pending' && <button onClick={() => updateOrderStatus(order.id, 'preparing')} className="w-full bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all border border-blue-500/30">HAZIRLA</button>}
-                    {order.status === 'preparing' && <button onClick={() => updateOrderStatus(order.id, 'served')} className="w-full bg-orange-600/20 hover:bg-orange-600 text-orange-400 hover:text-white py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all border border-orange-500/30">SERVİS ET</button>}
-                    {order.status === 'served' && <button onClick={() => updateOrderStatus(order.id, 'completed')} className="w-full bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all border border-green-500/30">TAMAMLA</button>}
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-            {orders.length === 0 && <div className="col-span-full py-40 flex flex-col items-center opacity-10"><ChefHat size={100} /><p className="mt-6 font-serif italic text-2xl tracking-widest">Sipariş yok.</p></div>}
-          </div>
-        ) : activeTab === 'reservations' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-             <AnimatePresence mode="popLayout">
-               {reservations.filter(r => r.status !== 'seated').map((res) => (
-                 <motion.div key={res.id} layout initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="bg-zinc-900/30 backdrop-blur-2xl rounded-3xl border border-white/5 p-8 relative group hover:border-[#c9a45c]/20 transition-all shadow-2xl">
-                   <div className="flex justify-between items-start mb-8">
-                      <div className="flex items-center gap-5">
-                        <div className="w-14 h-14 rounded-2xl bg-[#c9a45c]/10 flex items-center justify-center text-[#c9a45c] border border-[#c9a45c]/20 shadow-inner">
-                          <User size={24} />
-                        </div>
+         <main className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8 relative z-0">
+            {loading ? (
+               <div className="flex flex-col items-center justify-center py-40">
+                  <Loader2 className="w-12 h-12 text-[#c9a45c] animate-spin" />
+               </div>
+            ) : activeTab === 'orders' ? (
+               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
+                  <AnimatePresence mode="popLayout">
+                  {orders.map((order) => (
+                     <motion.div key={order.id} layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="bg-zinc-900/30 backdrop-blur-2xl rounded-2xl border border-white/5 flex flex-col overflow-hidden hover:border-[#c9a45c]/30 transition-colors shadow-lg">
+                        <div className="p-5 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
                         <div>
-                          <h3 className="text-xl font-bold text-white tracking-tight">{res.full_name}</h3>
-                          <p className="text-zinc-500 text-[10px] mt-1 uppercase tracking-widest font-medium italic">{res.email}</p>
+                           <span className="text-[9px] uppercase tracking-widest text-[#c9a45c] font-bold">Masa</span>
+                           <h2 className="text-2xl font-bold font-mono text-white tracking-tighter">{order.table_no}</h2>
                         </div>
-                      </div>
-                      <div className={`px-4 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-widest border shadow-inner ${res.status === 'confirmed' ? 'bg-green-500/10 text-green-400 border-green-500/30' : 'bg-orange-500/10 text-orange-400 border-orange-500/30'}`}>{res.status === 'confirmed' ? 'ONAYLI' : 'BEKLEYEN'}</div>
-                   </div>
-                   
-                   <div className="grid grid-cols-2 gap-4 mb-8">
-                      <div className="bg-black/20 p-4 rounded-2xl border border-white/5 flex items-center gap-3">
-                        <Calendar size={18} className="text-[#c9a45c]" />
-                        <span className="text-sm font-bold text-gray-200">{res.res_date}</span>
-                      </div>
-                      <div className="bg-black/20 p-4 rounded-2xl border border-white/5 flex items-center gap-3">
-                        <Clock size={18} className="text-[#c9a45c]" />
-                        <span className="text-sm font-bold text-gray-200">{res.res_time}</span>
-                      </div>
-                   </div>
-
-                   <div className="flex gap-4">
-                      {res.status === 'pending' ? (
-                        <button onClick={() => { setAssigningReservation(res); setShowTableManager(true); }} className="flex-1 bg-gradient-to-r from-[#c9a45c] to-[#a0823c] text-black py-4 rounded-2xl font-bold text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-3 shadow-xl">MASA ATA & ONAYLA <ChevronRight size={16} /></button>
-                      ) : (
-                        <div className="w-full flex items-center gap-4">
-                           <div className="flex-[2] bg-zinc-800/40 py-4 rounded-2xl text-center text-xs font-bold border border-[#c9a45c]/20 text-[#c9a45c] tracking-widest">MASA {res.table_no}</div>
-                           <button onClick={async () => { await supabase.from('reservations').update({ status: 'seated' }).eq('id', res.id); fetchReservations(); }} className="flex-1 bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white py-4 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all border border-green-500/30">OTURDU</button>
+                        <div className={`px-3 py-1 rounded-full text-[9px] uppercase font-bold border ${getStatusColor(order.status)} drop-shadow-md`}>{order.status}</div>
                         </div>
-                      )}
-                   </div>
-                 </motion.div>
-               ))}
-             </AnimatePresence>
-          </div>
-        ) : (
-          <div className="space-y-16">
-            <div className="flex justify-between items-center bg-zinc-900/40 p-8 rounded-[2rem] border border-white/5">
-              <div>
-                <h2 className="text-2xl font-serif text-[#f7e6b8] tracking-widest uppercase">Menü Envanteri</h2>
-                <p className="text-zinc-500 text-[10px] mt-2 tracking-[0.2em] font-bold uppercase">Tüm yemekleri ve fiyatları buradan yönetin</p>
-              </div>
-              <button 
-                onClick={(e) => { e.preventDefault(); handleAddNewItem(categories[0]?.id || ""); }}
-                className="flex items-center gap-3 bg-[#c9a45c] text-black px-8 py-4 rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-[#d8b56a] transition-all shadow-xl active:scale-95 z-20"
-              >
-                <Plus size={18} /> YENİ ÜRÜN EKLE
-              </button>
-            </div>
-
-            {categories.map((cat) => (
-              <div key={cat.id} className="space-y-8">
-                <div className="flex items-center gap-6">
-                  <span className="text-zinc-700 font-mono text-sm">/ {cat.display_order}</span>
-                  <h3 className="text-xl font-serif text-[#f7e6b8] tracking-[0.2em] uppercase">{cat.name}</h3>
-                  <div className="h-px flex-1 bg-white/5" />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                  {menuItems
-                    .filter(item => item.category_id === cat.id)
-                    .map(item => (
-                      <motion.div 
-                        key={item.id} 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="bg-zinc-900/40 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] p-7 flex flex-col justify-between hover:border-[#c9a45c]/30 transition-all shadow-2xl relative group h-full"
-                      >
-                        <div className="space-y-4">
-                          <div className="flex justify-between items-start gap-4">
-                            <div className="flex-1">
-                              <h4 className="text-lg font-bold text-white group-hover:text-[#c9a45c] transition-colors leading-tight">{item.name}</h4>
-                              <p className="text-zinc-500 text-[11px] mt-2 italic leading-relaxed line-clamp-2 h-8">{item.description || "Açıklama girilmedi."}</p>
-                            </div>
-                            <div className="text-xl font-mono font-bold text-[#c9a45c] bg-[#c9a45c]/10 px-4 py-2 rounded-2xl border border-[#c9a45c]/20">
-                              {item.price}₺
-                            </div>
-                          </div>
+                        <div className="flex-1 p-5 space-y-3 max-h-[200px] overflow-y-auto custom-scrollbar">
+                        {order.items?.map((item) => (
+                           <div key={item.id} className="flex gap-3 items-start group">
+                              <span className="text-[#c9a45c] font-bold font-mono bg-[#c9a45c]/10 w-6 h-6 rounded flex items-center justify-center text-[10px] shrink-0">x{item.quantity}</span>
+                              <span className="text-gray-300 font-medium text-xs leading-snug group-hover:text-white transition-colors">{item.menu_item?.name}</span>
+                           </div>
+                        ))}
+                        </div>
+                        <div className="p-4 bg-black/40 flex flex-col gap-2">
+                        {order.status === 'pending' && <button onClick={() => updateOrderStatus(order.id, 'preparing')} className="w-full bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white py-3 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all border border-blue-500/30">HAZIRLA</button>}
+                        {order.status === 'preparing' && <button onClick={() => updateOrderStatus(order.id, 'served')} className="w-full bg-orange-600/20 hover:bg-orange-600 text-orange-400 hover:text-white py-3 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all border border-orange-500/30">SERVİS ET</button>}
+                        {order.status === 'served' && <button onClick={() => updateOrderStatus(order.id, 'completed')} className="w-full bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white py-3 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all border border-green-500/30">TAMAMLA</button>}
+                        </div>
+                     </motion.div>
+                  ))}
+                  </AnimatePresence>
+                  {orders.length === 0 && <div className="col-span-full py-20 flex flex-col items-center opacity-10"><ChefHat size={80} /><p className="mt-4 font-serif italic text-xl tracking-widest">Sipariş yok.</p></div>}
+               </div>
+            ) : activeTab === 'reservations' ? (
+               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                  <AnimatePresence mode="popLayout">
+                  {reservations.filter(r => r.status !== 'seated').map((res) => (
+                     <motion.div key={res.id} layout initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="bg-zinc-900/40 backdrop-blur-xl rounded-2xl border border-white/5 p-6 relative group hover:border-[#c9a45c]/20 transition-all shadow-lg">
+                        <div className="flex justify-between items-start mb-6">
+                        <div className="flex items-center gap-4">
+                           <div className="w-12 h-12 rounded-xl bg-[#c9a45c]/10 flex items-center justify-center text-[#c9a45c] border border-[#c9a45c]/20">
+                              <User size={20} />
+                           </div>
+                           <div>
+                              <h3 className="text-lg font-bold text-white tracking-tight">{res.full_name}</h3>
+                              <p className="text-zinc-500 text-[10px] uppercase tracking-widest font-medium italic">{res.email}</p>
+                           </div>
+                        </div>
+                        <div className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest border ${res.status === 'confirmed' ? 'bg-green-500/10 text-green-400 border-green-500/30' : 'bg-orange-500/10 text-orange-400 border-orange-500/30'}`}>{res.status === 'confirmed' ? 'ONAYLI' : 'BEKLEYEN'}</div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-3 mb-6">
+                        <div className="bg-black/30 p-3 rounded-xl border border-white/5 flex items-center gap-3">
+                           <Calendar size={16} className="text-[#c9a45c]" />
+                           <span className="text-xs font-bold text-gray-200">{res.res_date}</span>
+                        </div>
+                        <div className="bg-black/30 p-3 rounded-xl border border-white/5 flex items-center gap-3">
+                           <Clock size={16} className="text-[#c9a45c]" />
+                           <span className="text-xs font-bold text-gray-200">{res.res_time}</span>
+                        </div>
                         </div>
 
-                        <div className="mt-8 flex items-center justify-between pt-6 border-t border-white/5">
-                          <div className="flex gap-2.5">
-                            <button 
-                              title="Stok Durumu"
-                              onClick={(e) => { e.stopPropagation(); toggleAvailability(item); }} 
-                              className={`p-3 rounded-2xl border transition-all ${item.is_available ? 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20' : 'bg-red-500/10 border-red-500/30 text-red-500 hover:bg-red-500/20'}`}
-                            >
-                              {item.is_available ? <Eye size={18} /> : <EyeOff size={18} />}
-                            </button>
-                            <button 
-                              title="Popüler/Tavsiye"
-                              onClick={(e) => { e.stopPropagation(); togglePopular(item); }} 
-                              className={`p-3 rounded-2xl border transition-all ${item.is_popular ? 'bg-yellow-400 border-yellow-300 text-black shadow-[0_0_25px_rgba(250,204,21,0.5)]' : 'bg-zinc-800 border-white/5 text-zinc-500 hover:bg-zinc-700'}`}
-                            >
-                              <Flame size={18} fill={item.is_popular ? "currentColor" : "none"} />
-                            </button>
-                            <button 
-                              title="Sil"
-                              onClick={(e) => { e.stopPropagation(); handleDeleteItem(item.id); }}
-                              className="p-3 bg-zinc-800 border border-white/5 text-zinc-500 hover:bg-red-600/20 hover:text-red-500 hover:border-red-500/30 rounded-2xl transition-all"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </div>
-                          
-                          <button 
-                            onClick={(e) => { 
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setEditingItem({...item}); 
-                            }} 
-                            className="p-4 bg-white/5 hover:bg-[#c9a45c] hover:text-black rounded-2xl border border-white/5 transition-all shadow-lg active:scale-95 group/edit"
-                          >
-                            <Edit size={20} className="group-hover/edit:scale-110 transition-transform" />
-                          </button>
+                        <div className="flex gap-3">
+                        {res.status === 'pending' ? (
+                           <button onClick={() => { setAssigningReservation(res); /* Modal yok, sol panelden secim yapilacak */ }} className="flex-1 bg-gradient-to-r from-[#c9a45c] to-[#a0823c] text-black py-3 rounded-xl font-bold text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform">
+                              {assigningReservation?.id === res.id ? 'SEÇİM BEKLENİYOR...' : 'MASA ATA'} <ChevronRight size={14} />
+                           </button>
+                        ) : (
+                           <div className="w-full flex items-center gap-3">
+                              <div className="flex-[2] bg-zinc-800/40 py-3 rounded-xl text-center text-[10px] font-bold border border-[#c9a45c]/20 text-[#c9a45c] tracking-widest">MASA {res.table_no}</div>
+                              <button onClick={async () => { await supabase.from('reservations').update({ status: 'seated' }).eq('id', res.id); fetchReservations(); }} className="flex-1 bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all border border-green-500/30">OTURDU</button>
+                           </div>
+                        )}
                         </div>
-                      </motion.div>
-                    ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-
-
-
-
-        <AnimatePresence>
-          {showTableManager && (
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }} 
-              className="fixed inset-0 z-[1000] flex items-center justify-center p-4 md:p-8 bg-black/95 backdrop-blur-3xl overflow-hidden"
-            >
-              <motion.div 
-                initial={{ scale: 0.9, y: 20 }} 
-                animate={{ scale: 1, y: 0 }} 
-                className="bg-[#111111] border border-white/10 rounded-[2.5rem] md:rounded-[3.5rem] w-full max-w-[1200px] max-h-[75vh] flex flex-col relative shadow-[0_0_100px_rgba(0,0,0,1)] overflow-hidden"
-              >
-                <div className="p-6 md:p-10 border-b border-white/5 flex items-center justify-between bg-black/40 shrink-0">
+                     </motion.div>
+                  ))}
+                  </AnimatePresence>
+               </div>
+            ) : (
+               <div className="space-y-12">
+                  <div className="flex justify-between items-center bg-zinc-900/40 p-6 rounded-[2rem] border border-white/5">
                   <div>
-                    <h2 className="text-2xl md:text-3xl font-serif text-[#f7e6b8] tracking-tight">{assigningReservation ? `Masa Atama: ${assigningReservation.full_name}` : 'Masa Kontrol Paneli'}</h2>
-                    <p className="text-zinc-500 text-[10px] md:text-xs mt-2 uppercase tracking-[0.3em] font-light">{assigningReservation ? 'Rezervasyon için masa seçin' : 'Masa durumlarını yönetin'}</p>
+                     <h2 className="text-xl font-serif text-[#f7e6b8] tracking-widest uppercase">Menü Envanteri</h2>
+                     <p className="text-zinc-500 text-[10px] mt-1 tracking-[0.2em] font-bold uppercase">Yemekleri ve fiyatları yönetin</p>
                   </div>
-                  <button onClick={() => { setShowTableManager(false); setAssigningReservation(null); }} className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-zinc-400 Transition-all shrink-0"><X size={24} /></button>
-                </div>
-                <div className="flex-1 p-6 md:p-12 pb-24 overflow-y-auto custom-scrollbar bg-[radial-gradient(circle_at_center,_#1a1a1a_0%,_#111111_100%)]">
-                  <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-8 lg:grid-cols-10 gap-4 md:gap-6">
-                    {Array.from({ length: 40 }, (_, i) => i + 1).map((num) => {
-                      const tableNo = num.toString();
-                      const status = tableStatuses[tableNo] || 'available';
-                      return (
-                        <button key={tableNo} onClick={() => updateTableStatus(tableNo, status === 'available' ? 'reserved' : status === 'reserved' ? 'occupied' : 'available')} className={`aspect-square rounded-[1.5rem] md:rounded-[2rem] flex flex-col items-center justify-center transition-all border duration-300 relative group overflow-hidden ${status === 'occupied' ? "bg-red-500/10 border-red-500/40 text-red-500 shadow-[0_0_20px_rgba(239,68,68,0.1)]" : status === 'reserved' ? "bg-orange-500/10 border-orange-500/40 text-orange-400 shadow-[0_0_20px_rgba(249,115,22,0.1)]" : "bg-zinc-800/20 border-white/5 text-zinc-500 hover:border-[#c9a45c]/50 hover:bg-[#c9a45c]/5"}`}>
-                          <span className="text-lg md:text-2xl font-bold font-mono tracking-tighter">{num}</span>
-                          <span className="text-[7px] md:text-[9px] font-bold mt-1 uppercase tracking-widest opacity-40 group-hover:opacity-100 transition-opacity">{status === 'available' ? 'BOŞ' : status === 'occupied' ? 'DOLU' : 'REZE'}</span>
-                        </button>
-                      );
-                    })}
+                  <button 
+                     onClick={(e) => { e.preventDefault(); handleAddNewItem(categories[0]?.id || ""); }}
+                     className="flex items-center gap-2 bg-[#c9a45c] text-black px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-[10px] hover:bg-[#d8b56a] transition-all shadow-xl active:scale-95"
+                  >
+                     <Plus size={16} /> YENİ ÜRÜN
+                  </button>
                   </div>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+
+                  {categories.map((cat) => (
+                  <div key={cat.id} className="space-y-6">
+                     <div className="flex items-center gap-4">
+                        <span className="text-zinc-700 font-mono text-xs">/ {cat.display_order}</span>
+                        <h3 className="text-lg font-serif text-[#f7e6b8] tracking-[0.2em] uppercase">{cat.name}</h3>
+                        <div className="h-px flex-1 bg-white/5" />
+                     </div>
+                     
+                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                        {menuItems
+                        .filter(item => item.category_id === cat.id)
+                        .map(item => (
+                           <motion.div 
+                              key={item.id} 
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="bg-zinc-900/40 backdrop-blur-3xl border border-white/5 rounded-3xl p-6 flex flex-col justify-between hover:border-[#c9a45c]/30 transition-all shadow-xl relative group h-full"
+                           >
+                              <div className="space-y-3">
+                              <div className="flex justify-between items-start gap-4">
+                                 <div className="flex-1">
+                                    <h4 className="text-base font-bold text-white group-hover:text-[#c9a45c] transition-colors leading-tight">{item.name}</h4>
+                                    <p className="text-zinc-500 text-[10px] mt-1 italic leading-relaxed line-clamp-2 h-8">{item.description || "Açıklama girilmedi."}</p>
+                                 </div>
+                                 <div className="text-lg font-mono font-bold text-[#c9a45c] bg-[#c9a45c]/10 px-3 py-1.5 rounded-xl border border-[#c9a45c]/20">
+                                    {item.price}₺
+                                 </div>
+                              </div>
+                              </div>
+
+                              <div className="mt-6 flex items-center justify-between pt-4 border-t border-white/5">
+                              <div className="flex gap-2">
+                                 <button onClick={(e) => { e.stopPropagation(); toggleAvailability(item); }} className={`p-2.5 rounded-xl border transition-all ${item.is_available ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-red-500/10 border-red-500/30 text-red-500'}`}><Eye size={16} /></button>
+                                 <button onClick={(e) => { e.stopPropagation(); togglePopular(item); }} className={`p-2.5 rounded-xl border transition-all ${item.is_popular ? 'bg-yellow-400 border-yellow-300 text-black' : 'bg-zinc-800 border-white/5 text-zinc-500'}`}><Flame size={16} fill={item.is_popular ? "currentColor" : "none"} /></button>
+                                 <button onClick={(e) => { e.stopPropagation(); handleDeleteItem(item.id); }} className="p-2.5 bg-zinc-800 border border-white/5 text-zinc-500 hover:bg-red-600/20 hover:text-red-500 rounded-xl transition-all"><Trash2 size={16} /></button>
+                              </div>
+                              <button onClick={(e) => { e.stopPropagation(); setEditingItem({...item}); }} className="p-3 bg-white/5 hover:bg-[#c9a45c] hover:text-black rounded-xl border border-white/5 transition-all shadow-lg active:scale-95"><Edit size={16} /></button>
+                              </div>
+                           </motion.div>
+                        ))}
+                     </div>
+                  </div>
+                  ))}
+               </div>
+            )}
+         </main>
       </div>
+
+       {/* --- Modals --- */}
+       <AnimatePresence>
+         {editingItem && (
+           <motion.div 
+             initial={{ opacity: 0 }} 
+             animate={{ opacity: 1 }} 
+             exit={{ opacity: 0 }} 
+             className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl"
+           >
+             <motion.div 
+               initial={{ scale: 0.9, y: 20 }} 
+               animate={{ scale: 1, y: 0 }}
+               exit={{ scale: 0.9, y: 20 }}
+               className="bg-[#111111] border border-white/10 rounded-3xl w-full max-w-[500px] flex flex-col shadow-2xl overflow-hidden"
+             >
+                <div className="p-6 border-b border-white/5 flex items-center justify-between bg-black/40">
+                   <h2 className="text-xl font-serif text-[#f7e6b8] tracking-widest uppercase">Yemek Düzenle</h2>
+                   <button onClick={() => setEditingItem(null)} className="p-3 rounded-full bg-white/5 text-zinc-500 hover:text-white transition-all"><X size={18} /></button>
+                </div>
+                <div className="p-6 space-y-5 overflow-y-auto max-h-[70vh] custom-scrollbar">
+                   <div className="space-y-1">
+                      <label className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest pl-2">Yemek İsmi</label>
+                      <input type="text" value={editingItem.name} onChange={e => editingItem && setEditingItem({...editingItem, name: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-[#c9a45c]/50 text-sm" />
+                   </div>
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                         <label className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest pl-2">Fiyat (₺)</label>
+                         <input type="number" value={editingItem.price} onChange={e => editingItem && setEditingItem({...editingItem, price: Number(e.target.value)})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-[#c9a45c]/50 text-sm" />
+                      </div>
+                      <div className="space-y-1">
+                         <label className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest pl-2">Kategori</label>
+                         <select value={editingItem.category_id} onChange={e => editingItem && setEditingItem({...editingItem, category_id: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-[#c9a45c]/50 appearance-none text-sm">
+                            {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+                         </select>
+                      </div>
+                   </div>
+                   <div className="space-y-1">
+                      <label className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest pl-2">Açıklama</label>
+                      <textarea rows={3} value={editingItem.description} onChange={e => editingItem && setEditingItem({...editingItem, description: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-[#c9a45c]/50 resize-none text-sm" />
+                   </div>
+                   <button disabled={isSaving} onClick={handleSaveItem} className="w-full bg-gradient-to-r from-[#c9a45c] to-[#a0823c] text-black py-4 rounded-xl font-bold uppercase tracking-[0.2em] flex items-center justify-center gap-3 active:scale-95 transition-all shadow-xl disabled:opacity-50 mt-2 text-xs">
+                      {isSaving ? <Loader2 className="animate-spin" /> : <><Save size={18} /> KAYDET</>}
+                   </button>
+                </div>
+             </motion.div>
+           </motion.div>
+         )}
+       </AnimatePresence>
     </div>
   );
 }
