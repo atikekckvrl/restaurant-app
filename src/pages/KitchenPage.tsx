@@ -285,29 +285,31 @@ export default function KitchenPage() {
 
   return (
     <div className="flex flex-col lg:flex-row h-screen bg-[#0a0a0a] text-white font-sans overflow-hidden">
-      {/* --- Sol Panel: Masa Planı --- */}
-      <div className="lg:w-[400px] xl:w-[480px] bg-[#111111] border-r border-white/5 flex flex-col h-[40vh] lg:h-full relative z-20 shadow-[20px_0_50px_rgba(0,0,0,0.5)]">
-         <div className="p-6 md:p-8 border-b border-white/5 bg-black/20 backdrop-blur-xl shrink-0">
-            <h2 className="text-xl font-serif text-[#f7e6b8] tracking-widest uppercase">Masa Planı</h2>
-            <p className="text-zinc-500 text-[10px] mt-2 uppercase tracking-[0.2em] font-bold">
-               {assigningReservation ? `Atama: ${assigningReservation.full_name}` : 'Durum Kontrolü'}
-            </p>
+      {/* --- Sol Panel: Masa Planı (Genişletildi) --- */}
+      <div className="lg:w-1/2 bg-[#0e0e0e] border-r border-white/5 flex flex-col h-[50vh] lg:h-full relative z-20 shadow-[20px_0_50px_rgba(0,0,0,0.5)]">
+         <div className="p-6 md:p-8 border-b border-white/5 bg-black/20 backdrop-blur-xl shrink-0 flex justify-between items-center">
+            <div>
+               <h2 className="text-2xl md:text-3xl font-serif text-[#f7e6b8] tracking-widest uppercase">Masa Planı</h2>
+               <p className="text-zinc-500 text-xs mt-2 uppercase tracking-[0.2em] font-bold">
+                  {assigningReservation ? `Atama: ${assigningReservation.full_name}` : 'Anlık Durum'}
+               </p>
+            </div>
             {assigningReservation && (
-               <button onClick={() => setAssigningReservation(null)} className="mt-4 w-full py-3 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-500/20 transition-all flex items-center justify-center gap-2">
-                  <X size={14} /> Atamayı İptal Et
+               <button onClick={() => setAssigningReservation(null)} className="px-6 py-3 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-500/20 transition-all flex items-center gap-2">
+                  <X size={16} /> İptal
                </button>
             )}
          </div>
          
-         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 bg-[radial-gradient(circle_at_top_left,_#1a1a1a_0%,_#0a0a0a_100%)]">
-            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+         <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-10 bg-[radial-gradient(circle_at_center,_#161616_0%,_#0a0a0a_100%)]">
+            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4 md:gap-6">
                {Array.from({ length: 40 }, (_, i) => i + 1).map((num) => {
                   const tableNo = num.toString();
                   const status = tableStatuses[tableNo] || 'available';
                   return (
-                  <button key={tableNo} onClick={() => updateTableStatus(tableNo, status === 'available' ? 'reserved' : status === 'reserved' ? 'occupied' : 'available')} className={`aspect-square rounded-2xl flex flex-col items-center justify-center transition-all border duration-300 relative group overflow-hidden ${status === 'occupied' ? "bg-red-500/10 border-red-500/40 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.15)]" : status === 'reserved' ? "bg-orange-500/10 border-orange-500/40 text-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.15)]" : "bg-zinc-800/40 border-white/5 text-zinc-500 hover:border-[#c9a45c]/50 hover:bg-[#c9a45c]/5 hover:text-[#c9a45c]"}`}>
-                     <span className="text-lg font-bold font-mono tracking-tighter">{num}</span>
-                     <span className="text-[8px] font-bold mt-1 uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">{status === 'available' ? 'BOŞ' : status === 'occupied' ? 'DOLU' : 'REZE'}</span>
+                  <button key={tableNo} onClick={() => updateTableStatus(tableNo, status === 'available' ? 'reserved' : status === 'reserved' ? 'occupied' : 'available')} className={`aspect-square rounded-[1.5rem] flex flex-col items-center justify-center transition-all border-2 duration-300 relative group overflow-hidden ${status === 'occupied' ? "bg-red-500/10 border-red-500/40 text-red-500 shadow-[0_0_25px_rgba(239,68,68,0.2)]" : status === 'reserved' ? "bg-orange-500/10 border-orange-500/40 text-orange-400 shadow-[0_0_25px_rgba(249,115,22,0.2)]" : "bg-zinc-800/30 border-white/5 text-zinc-500 hover:border-[#c9a45c]/50 hover:bg-[#c9a45c]/10 hover:text-[#c9a45c] hover:shadow-[0_0_20px_rgba(201,164,92,0.1)]"}`}>
+                     <span className="text-2xl md:text-3xl font-bold font-mono tracking-tighter">{num}</span>
+                     <span className="text-[9px] md:text-[10px] font-bold mt-2 uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">{status === 'available' ? 'BOŞ' : status === 'occupied' ? 'DOLU' : 'REZE'}</span>
                   </button>
                   );
                })}
