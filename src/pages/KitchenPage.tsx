@@ -110,10 +110,52 @@ export default function KitchenPage() {
   async function fetchTableStatuses() {
     const { data: manualData } = await supabase.from('table_status').select('*');
     const { data: orderData } = await supabase.from('orders').select('table_no').in('status', ['pending', 'preparing', 'served']);
+    
+    // Rezervasyon verilerini de çek (Bugün + Onaylı)
+    const today = new Date().toISOString().split('T')[0];
+    const { data: resData } = await supabase
+      .from('reservations')
+      .select('table_no, res_time')
+      .eq('status', 'confirmed')
+      .eq('res_date', today);
 
     const statuses: Record<string, string> = {};
     manualData?.forEach(m => statuses[m.table_no] = m.status);
     orderData?.forEach(o => statuses[o.table_no] = 'occupied');
+
+    // Zaman Ayarlı Rezervasyon Mantığı
+    const now = new Date();
+    resData?.forEach(res => {
+      if (res.table_no && res.res_time) {
+        try {
+           const parts = res.res_time.split(':');
+           if (parts.length >= 2) {
+              const hours = parseInt(parts[0], 10);
+              const minutes = parseInt(parts[1], 10);
+              
+              const resDate = new Date();
+              resDate.setHours(hours, minutes, 0, 0);
+
+              // Farkı dakika olarak hesapla
+              const diffInMinutes = (resDate.getTime() - now.getTime()) / (1000 * 60);
+
+              // 1. Durum: Rezerve (Sarı) - 60 dk kala
+              if (diffInMinutes <= 60 && diffInMinutes > 0) {
+                 if (statuses[res.table_no] !== 'occupied') {
+                    statuses[res.table_no] = 'reserved';
+                 }
+              } 
+              // 2. Durum: Dolu (Kırmızı) - Saati geldi veya geçti (2 saat)
+              else if (diffInMinutes <= 0 && diffInMinutes > -120) {
+                 statuses[res.table_no] = 'occupied';
+              }
+           }
+        } catch (e) {
+           console.error("Time parse error", e);
+        }
+      }
+    });
+
     setTableStatuses(statuses);
   }
 

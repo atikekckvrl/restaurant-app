@@ -138,10 +138,34 @@ export default function OrderPage() {
              if (parts.length >= 2) {
                 const hours = parseInt(parts[0], 10);
                 const minutes = parseInt(parts[1], 10);
-                const resTime = new Date();
-                resTime.setHours(hours, minutes, 0, 0);
+                
+                // Rezervasyon tarihi 'today' olarak filtrelendiği için sadece saati set ediyoruz
+                const resDate = new Date();
+                resDate.setHours(hours, minutes, 0, 0);
 
-                const diffInMinutes = (resTime.getTime() - now.getTime()) / (1000 * 60);
+                // Farkı dakika olarak hesapla
+                // resDate (14:00) - now (13:30) = 30 dk pozitif fark
+                const diffInMinutes = (resDate.getTime() - now.getTime()) / (1000 * 60);
+
+                // 1. Durum: Rezerve (Sarı)
+                // Rezervasyona 60 dk veya daha az kaldıysa (ve henüz saati gelmediyse)
+                if (diffInMinutes <= 60 && diffInMinutes > 0) {
+                   // Eğer masada zaten 'occupied' varsa onu ezme (müşteri erken gelmiş olabilir)
+                   if (statuses[res.table_no] !== 'occupied') {
+                      statuses[res.table_no] = 'reserved';
+                   }
+                } 
+                // 2. Durum: Dolu (Kırmızı/Occupied)
+                // Rezervasyon saati geldi veya geçti (2 saat)
+                else if (diffInMinutes <= 0 && diffInMinutes > -120) {
+                   statuses[res.table_no] = 'occupied';
+                }
+             }
+          } catch (e) {
+             console.error("Time parse error", e);
+          }
+        }
+      });
 
                 if (diffInMinutes <= 60 && diffInMinutes > -120) {
                   statuses[res.table_no] = 'reserved';
