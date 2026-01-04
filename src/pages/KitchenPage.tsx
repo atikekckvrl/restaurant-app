@@ -75,32 +75,35 @@ export default function KitchenPage() {
   const [tableStatuses, setTableStatuses] = useState<Record<string, string>>({});
   const [assigningReservation, setAssigningReservation] = useState<Reservation | null>(null);
 
-  // Menu Management States
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string>(new Date().toLocaleTimeString());
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const refreshAllData = async () => {
+    setIsSyncing(true);
+    await Promise.all([
+      fetchOrders(),
+      fetchTableStatuses(),
+      fetchReservations(),
+      fetchMenuData()
+    ]);
+    setLastSyncTime(new Date().toLocaleTimeString());
+    setIsSyncing(false);
+  };
 
   useEffect(() => {
-    fetchOrders();
-    fetchTableStatuses();
-    fetchReservations();
-    fetchMenuData();
+    // İlk yüklemede tüm verileri çek
+    refreshAllData();
 
-    const ordersChannel = supabase.channel('orders-update').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-      fetchOrders();
-      fetchTableStatuses();
-    }).subscribe();
-
-    const tablesChannel = supabase.channel('table-status-update').on('postgres_changes', { event: '*', schema: 'public', table: 'table_status' }, () => fetchTableStatuses()).subscribe();
-
-    const resChannel = supabase.channel('reservations-update').on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => fetchReservations()).subscribe();
-
-    const menuChannel = supabase.channel('menu-update').on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, () => fetchMenuData()).subscribe();
+    // POLLLING: Realtime (WebSocket) bağlantısı kopsa veya engellense bile 
+    // her 3 saniyede bir verileri tazele (En güvenli yöntem)
+    const pollInterval = setInterval(() => {
+      refreshAllData();
+    }, 3000);
 
     return () => {
-      supabase.removeChannel(ordersChannel);
-      supabase.removeChannel(tablesChannel);
-      supabase.removeChannel(resChannel);
-      supabase.removeChannel(menuChannel);
+      clearInterval(pollInterval);
     };
   }, []);
 
@@ -112,45 +115,54 @@ export default function KitchenPage() {
       const today = new Date().toISOString().split('T')[0];
       const { data: resData } = await supabase
         .from('reservations')
-        .select('table_no, res_time')
-        .eq('status', 'confirmed')
+        .select('table_no, res_time, status')
+        .in('status', ['confirmed', 'seated'])
         .eq('res_date', today);
 
       const statuses: Record<string, string> = {};
-      manualData?.forEach(m => {
-        if (m.table_no) statuses[m.table_no] = m.status;
-      });
+      
+      // 1. Sipariş verilerini işle (Baz durum)
       orderData?.forEach(o => {
         if (o.table_no) statuses[o.table_no] = 'occupied';
       });
 
       const now = new Date();
       resData?.forEach(res => {
-        if (res.table_no && res.res_time) {
-          try {
-             const parts = res.res_time.split(':');
-             if (parts.length >= 2) {
-                const hours = parseInt(parts[0], 10);
-                const minutes = parseInt(parts[1], 10);
-                
-                const resDate = new Date();
-                resDate.setHours(hours, minutes, 0, 0);
+        if (res.table_no) {
+          if (res.status === 'seated') {
+            statuses[res.table_no] = 'occupied';
+          } else if (res.res_time) {
+            try {
+               const parts = res.res_time.split(':');
+               if (parts.length >= 2) {
+                  const hours = parseInt(parts[0], 10);
+                  const minutes = parseInt(parts[1], 10);
+                  
+                  const resDate = new Date();
+                  resDate.setHours(hours, minutes, 0, 0);
 
-                const diffInMinutes = (resDate.getTime() - now.getTime()) / (1000 * 60);
+                  const diffInMinutes = (resDate.getTime() - now.getTime()) / (1000 * 60);
 
-                if (diffInMinutes <= 60 && diffInMinutes > 0) {
-                   if (statuses[res.table_no] !== 'occupied') {
-                      statuses[res.table_no] = 'reserved';
-                   }
-                } 
-                else if (diffInMinutes <= 0 && diffInMinutes > -120) {
-                   statuses[res.table_no] = 'occupied';
-                }
-             }
-          } catch (e) {
-             console.error("Time logic error for table", res.table_no, e);
+                  if (diffInMinutes <= 60 && diffInMinutes > 0) {
+                     if (statuses[res.table_no] !== 'occupied') {
+                        statuses[res.table_no] = 'reserved';
+                     }
+                  } 
+                  else if (diffInMinutes <= 0 && diffInMinutes > -120) {
+                     statuses[res.table_no] = 'occupied';
+                  }
+               }
+            } catch (e) {
+               console.error("Time logic error for table", res.table_no, e);
+            }
           }
         }
+      });
+
+      // 4. SON OLARAK: Manuel Durumlar (Kullanıcının Tıklaması) - EN YÜKSEK ÖNCELİK
+      // Bu, otomatik durumları ezebilmenizi ve masayı manuel yönetebilmenizi sağlar.
+      manualData?.forEach(m => {
+        if (m.table_no) statuses[m.table_no] = m.status;
       });
 
       setTableStatuses(statuses);
@@ -162,13 +174,22 @@ export default function KitchenPage() {
   }
 
   async function fetchReservations() {
-    const { data } = await supabase
-      .from('reservations')
-      .select('*')
-      .order('res_date', { ascending: true })
-      .order('res_time', { ascending: true });
-    
-    if (data) setReservations(data);
+    try {
+      const { data, error } = await supabase
+        .from('reservations')
+        .select('*')
+        .order('res_date', { ascending: true })
+        .order('res_time', { ascending: true });
+      
+      if (error) {
+        console.error("fetchReservations Error:", error);
+      } else if (data) {
+        console.log("Rezervasyonlar güncellendi. Toplam:", data.length);
+        setReservations(data);
+      }
+    } catch (e) {
+      console.error("fetchReservations Exception:", e);
+    }
   }
 
   async function fetchMenuData() {
@@ -201,11 +222,30 @@ export default function KitchenPage() {
   }
 
   async function updateTableStatus(tableNo: string, newStatus: string) {
+    // 1. İyimser Güncelleme (Optimistic Update): Hemen arayüzü güncelle
+    setTableStatuses(prev => ({
+      ...prev,
+      [tableNo]: transitioningToStatus(prev[tableNo] || 'available')
+    }));
+
+    function transitioningToStatus(current: string) {
+      if (assigningReservation) return 'reserved'; // Atama yapıldığında direkt rezerve (Sarı) olmalı
+      // Manuel geçiş: Boş -> Rezerve -> Dolu -> Boş
+      return current === 'available' ? 'reserved' : current === 'reserved' ? 'occupied' : 'available';
+    }
+
     if (assigningReservation) {
+      const reservationId = assigningReservation.id;
       setAssigningReservation(null);
-      // setShowTableManager(false); // Kaldırıldı
-      fetchReservations();
+      
+      // Hem rezervasyonu hem de manuel masa durumunu güncelle
+      await Promise.all([
+        supabase.from('reservations').update({ table_no: tableNo, status: 'confirmed' }).eq('id', reservationId),
+        supabase.from('table_status').upsert({ table_no: tableNo, status: 'reserved' })
+      ]);
+
       fetchTableStatuses();
+      fetchReservations();
       return;
     }
 
@@ -214,6 +254,9 @@ export default function KitchenPage() {
   }
 
   async function updateOrderStatus(orderId: string, newStatus: string) {
+    // Optimistic: Sipariş listesini hemen güncelle
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+
     const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
     if (!error) {
       fetchOrders();
@@ -284,32 +327,46 @@ export default function KitchenPage() {
   const handleLogout = async () => await supabase.auth.signOut();
 
   return (
-    <div className="flex flex-col lg:flex-row h-screen bg-[#0a0a0a] text-white font-sans overflow-hidden">
-      {/* --- Sol Panel: Masa Planı (Genişletildi) --- */}
-      <div className="lg:w-1/2 bg-[#0e0e0e] border-r border-white/5 flex flex-col h-[50vh] lg:h-full relative z-20 shadow-[20px_0_50px_rgba(0,0,0,0.5)]">
+    <div className="flex flex-row h-screen bg-[#0a0a0a] text-white font-sans overflow-hidden">
+      {/* --- Sol Panel: Masa Planı (%30) --- */}
+      <div className="w-[30%] bg-[#0e0e0e] border-r border-white/5 flex flex-col h-full relative z-20 shadow-[20px_0_50px_rgba(0,0,0,0.5)]">
          <div className="p-6 md:p-8 border-b border-white/5 bg-black/20 backdrop-blur-xl shrink-0 flex justify-between items-center">
             <div>
-               <h2 className="text-2xl md:text-3xl font-serif text-[#f7e6b8] tracking-widest uppercase">Masa Planı</h2>
-               <p className="text-zinc-500 text-xs mt-2 uppercase tracking-[0.2em] font-bold">
+               <h2 className="text-xl md:text-2xl font-serif text-[#f7e6b8] tracking-widest uppercase">Masa Planı</h2>
+               <p className="text-zinc-500 text-[10px] mt-2 uppercase tracking-[0.2em] font-bold">
                   {assigningReservation ? `Atama: ${assigningReservation.full_name}` : 'Anlık Durum'}
                </p>
             </div>
             {assigningReservation && (
-               <button onClick={() => setAssigningReservation(null)} className="px-6 py-3 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-500/20 transition-all flex items-center gap-2">
-                  <X size={16} /> İptal
+               <button onClick={() => setAssigningReservation(null)} className="px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-red-500/20 transition-all flex items-center gap-2">
+                  <X size={14} /> İptal
                </button>
             )}
          </div>
          
-         <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-10 bg-[radial-gradient(circle_at_center,_#161616_0%,_#0a0a0a_100%)]">
-            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4 md:gap-6">
+         <div className="flex-1 overflow-hidden p-4 bg-zinc-900 flex flex-col">
+            <div className="grid grid-cols-5 gap-2 h-full w-full">
                {Array.from({ length: 40 }, (_, i) => i + 1).map((num) => {
                   const tableNo = num.toString();
                   const status = tableStatuses[tableNo] || 'available';
+                  let style = {};
+                  if (status === 'occupied') {
+                     style = { backgroundColor: '#dc2626', borderColor: '#ef4444', color: '#ffffff' };
+                  } else if (status === 'reserved') {
+                     style = { backgroundColor: '#eab308', borderColor: '#facc15', color: '#000000' };
+                  } else {
+                     style = { backgroundColor: '#16a34a', borderColor: '#22c55e', color: '#ffffff' };
+                  }
+
                   return (
-                  <button key={tableNo} onClick={() => updateTableStatus(tableNo, status === 'available' ? 'reserved' : status === 'reserved' ? 'occupied' : 'available')} className={`aspect-square rounded-[1.5rem] flex flex-col items-center justify-center transition-all border-2 duration-300 relative group overflow-hidden ${status === 'occupied' ? "bg-red-500/10 border-red-500/40 text-red-500 shadow-[0_0_25px_rgba(239,68,68,0.2)]" : status === 'reserved' ? "bg-orange-500/10 border-orange-500/40 text-orange-400 shadow-[0_0_25px_rgba(249,115,22,0.2)]" : "bg-zinc-800/30 border-white/5 text-zinc-500 hover:border-[#c9a45c]/50 hover:bg-[#c9a45c]/10 hover:text-[#c9a45c] hover:shadow-[0_0_20px_rgba(201,164,92,0.1)]"}`}>
-                     <span className="text-2xl md:text-3xl font-bold font-mono tracking-tighter">{num}</span>
-                     <span className="text-[9px] md:text-[10px] font-bold mt-2 uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">{status === 'available' ? 'BOŞ' : status === 'occupied' ? 'DOLU' : 'REZE'}</span>
+                  <button 
+                     key={tableNo} 
+                     onClick={() => updateTableStatus(tableNo, status === 'available' ? 'reserved' : status === 'reserved' ? 'occupied' : 'available')} 
+                     className="w-full h-full rounded-xl flex flex-col items-center justify-center border-2 transition-all shadow-sm hover:brightness-110 p-1"
+                     style={style}
+                  >
+                     <span className="text-xl md:text-2xl font-bold font-mono tracking-tighter leading-none">{num}</span>
+                     <span className="text-[9px] font-bold mt-1 uppercase tracking-wider opacity-90 w-full text-center">{status === 'available' ? 'BOŞ' : status === 'occupied' ? 'DOLU' : 'RZV'}</span>
                   </button>
                   );
                })}
@@ -339,6 +396,13 @@ export default function KitchenPage() {
             </div>
 
             <div className="flex items-center gap-4 w-full xl:w-auto">
+               <div className="flex items-center gap-2 bg-zinc-900/50 px-3 py-2 rounded-lg border border-white/5 cursor-pointer hover:bg-zinc-800 transition-colors" onClick={refreshAllData}>
+                  <div className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-yellow-500 animate-pulse' : 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]'}`} />
+                  <span className="text-[10px] font-bold text-zinc-400 font-mono tracking-tighter uppercase">
+                     {isSyncing ? 'YENİLENİYOR' : `SENKRONİZE: ${lastSyncTime}`}
+                  </span>
+               </div>
+
                <div className="bg-zinc-900/50 backdrop-blur-xl px-6 py-3 rounded-xl border border-white/5 flex flex-col items-center flex-1 xl:flex-none min-w-[120px]">
                   <span className="text-zinc-500 text-[9px] uppercase tracking-[0.2em] font-bold">Aktif Kayıt</span>
                   <span className="text-xl font-mono font-bold text-[#f7e6b8]">
@@ -423,7 +487,14 @@ export default function KitchenPage() {
                         ) : (
                            <div className="w-full flex items-center gap-3">
                               <div className="flex-[2] bg-zinc-800/40 py-3 rounded-xl text-center text-[10px] font-bold border border-[#c9a45c]/20 text-[#c9a45c] tracking-widest">MASA {res.table_no}</div>
-                              <button onClick={async () => { await supabase.from('reservations').update({ status: 'seated' }).eq('id', res.id); fetchReservations(); }} className="flex-1 bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all border border-green-500/30">OTURDU</button>
+                               <button onClick={async () => { 
+                                 await Promise.all([
+                                    supabase.from('reservations').update({ status: 'seated' }).eq('id', res.id),
+                                    supabase.from('table_status').upsert({ table_no: res.table_no, status: 'occupied' })
+                                 ]);
+                                 fetchReservations(); 
+                                 fetchTableStatuses(); 
+                              }} className="flex-1 bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all border border-green-500/30">OTURDU</button>
                            </div>
                         )}
                         </div>

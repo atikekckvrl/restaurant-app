@@ -68,41 +68,15 @@ export default function OrderPage() {
 
   useEffect(() => {
     fetchData();
+    fetchTableStatuses();
     
-    // Real-time updates for table status
-    const orderChannel = supabase
-      .channel('order-status-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-        fetchTableStatuses();
-      })
-      .subscribe();
-
-    const manualChannel = supabase
-      .channel('manual-status-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'table_status' }, () => {
-        fetchTableStatuses();
-      })
-      .subscribe();
-
-    const resChannel = supabase
-      .channel('res-status-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => {
-        fetchTableStatuses();
-      })
-      .subscribe();
-
-    const menuChannel = supabase
-      .channel('menu-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, () => {
-        fetchData();
-      })
-      .subscribe();
+    // POLLLING: Realtime bağlantısı kopsa bile her 3 saniyede bir verileri tazele
+    const pollInterval = setInterval(() => {
+      fetchTableStatuses();
+    }, 3000);
 
     return () => {
-      supabase.removeChannel(orderChannel);
-      supabase.removeChannel(manualChannel);
-      supabase.removeChannel(resChannel);
-      supabase.removeChannel(menuChannel);
+      clearInterval(pollInterval);
     };
   }, []);
 
@@ -118,68 +92,55 @@ export default function OrderPage() {
       const today = new Date().toISOString().split('T')[0];
       const { data: resData } = await supabase
         .from('reservations')
-        .select('table_no, res_time')
-        .eq('status', 'confirmed')
+        .select('table_no, res_time, status')
+        .in('status', ['confirmed', 'seated'])
         .eq('res_date', today);
 
       const statuses: Record<string, string> = {};
       
-      // Önce manuel durumları yükle
-      manualData?.forEach(row => {
-        statuses[row.table_no] = row.status;
-      });
-
-      // Zaman Ayarlı Rezervasyon Mantığı:
+      // 2. Zaman Ayarlı Rezervasyon Mantığı
       const now = new Date();
       resData?.forEach(res => {
-        if (res.table_no && res.res_time) {
-          try {
-             const parts = res.res_time.split(':');
-             if (parts.length >= 2) {
-                const hours = parseInt(parts[0], 10);
-                const minutes = parseInt(parts[1], 10);
-                
-                // Rezervasyon tarihi 'today' olarak filtrelendiği için sadece saati set ediyoruz
-                const resDate = new Date();
-                resDate.setHours(hours, minutes, 0, 0);
+        if (res.table_no) {
+          if (res.status === 'seated') {
+            statuses[res.table_no] = 'occupied';
+          } else if (res.res_time) {
+            try {
+               const parts = res.res_time.split(':');
+               if (parts.length >= 2) {
+                  const hours = parseInt(parts[0], 10);
+                  const minutes = parseInt(parts[1], 10);
+                  
+                  const resDate = new Date();
+                  resDate.setHours(hours, minutes, 0, 0);
 
-                // Farkı dakika olarak hesapla
-                // resDate (14:00) - now (13:30) = 30 dk pozitif fark
-                const diffInMinutes = (resDate.getTime() - now.getTime()) / (1000 * 60);
+                  const diffInMinutes = (resDate.getTime() - now.getTime()) / (1000 * 60);
 
-                // 1. Durum: Rezerve (Sarı)
-                // Rezervasyona 60 dk veya daha az kaldıysa (ve henüz saati gelmediyse)
-                if (diffInMinutes <= 60 && diffInMinutes > 0) {
-                   // Eğer masada zaten 'occupied' varsa onu ezme (müşteri erken gelmiş olabilir)
-                   if (statuses[res.table_no] !== 'occupied') {
-                      statuses[res.table_no] = 'reserved';
-                   }
-                } 
-                // 2. Durum: Dolu (Kırmızı/Occupied)
-                // Rezervasyon saati geldi veya geçti (2 saat)
-                else if (diffInMinutes <= 0 && diffInMinutes > -120) {
-                   statuses[res.table_no] = 'occupied';
-                }
-             }
-          } catch (e) {
-             console.error("Time parse error", e);
+                  if (diffInMinutes <= 60 && diffInMinutes > 0) {
+                     if (statuses[res.table_no] !== 'occupied') {
+                        statuses[res.table_no] = 'reserved';
+                     }
+                  } 
+                  else if (diffInMinutes <= 0 && diffInMinutes > -120) {
+                     statuses[res.table_no] = 'occupied';
+                  }
+               }
+            } catch (e) {
+               console.error("Time parse error", e);
+            }
           }
         }
       });
 
-                if (diffInMinutes <= 60 && diffInMinutes > -120) {
-                  statuses[res.table_no] = 'reserved';
-                }
-             }
-          } catch (e) {
-             console.error("Time parse error", e);
-          }
-        }
-      });
-
-      // Sonra siparişi olanları 'occupied' (dolu) olarak ez
+      // 3. Siparişi olanları 'occupied' (dolu) olarak işaretle
       orderData?.forEach(order => {
         statuses[order.table_no] = 'occupied';
+      });
+
+      // 4. EN YÜKSEK ÖNCELİK: Manuel Durumlar (Kullanıcının tıklaması)
+      // Bu, otomatik durumları ezebilmenizi sağlar.
+      manualData?.forEach(row => {
+        statuses[row.table_no] = row.status;
       });
       
       setTableStatuses(statuses);
