@@ -79,6 +79,7 @@ export default function KitchenPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<string>(new Date().toLocaleTimeString());
   const [isSyncing, setIsSyncing] = useState(false);
+  const [selectedTable, setSelectedTable] = useState<string | null>(null);
 
   const refreshAllData = async () => {
     setIsSyncing(true);
@@ -110,7 +111,12 @@ export default function KitchenPage() {
   async function fetchTableStatuses() {
     try {
       const { data: manualData } = await supabase.from('table_status').select('*');
-      const { data: orderData } = await supabase.from('orders').select('table_no').in('status', ['pending', 'preparing', 'served']);
+      
+      // 2. Aktif veya tamamlanmış ama ödemesi alınmamış tüm siparişleri çek.
+      // Date filtresini kaldırıyoruz, çünkü "session" mantığında settled olmayan her şey aktiftir.
+      const { data: orderData } = await supabase.from('orders')
+        .select('table_no')
+        .in('status', ['pending', 'preparing', 'served', 'completed']);
       
       const today = new Date().toISOString().split('T')[0];
       const { data: resData } = await supabase
@@ -159,13 +165,27 @@ export default function KitchenPage() {
         }
       });
 
-      // 4. SON OLARAK: Manuel Durumlar (Kullanıcının Tıklaması) - EN YÜKSEK ÖNCELİK
-      // Bu, otomatik durumları ezebilmenizi ve masayı manuel yönetebilmenizi sağlar.
+      // 4. SON OLARAK: Manuel Durumlar (Kullanıcının Tıklaması) - YÜKSEK ÖNCELİK
       manualData?.forEach(m => {
-        if (m.table_no) statuses[m.table_no] = m.status;
+        if (m.table_no && m.status !== 'available') { // Sadece boş değilse manuel öncelik ver
+           statuses[m.table_no] = m.status;
+        }
       });
+      
+      // 5. KRİTİK SEVİYE: Aktif Sipariş Kontrolü (Siparişi olan masa HER ZAMAN dolu görünmeli)
+      if (orderData && orderData.length > 0) {
+        orderData.forEach(o => {
+          if (o.table_no) statuses[o.table_no] = 'occupied';
+        });
+      }
 
-      setTableStatuses(statuses);
+      // Sadece veri geldiyse güncelleme yap (Tüm masaların birden yeşile dönmesini engellemek için)
+      if (Object.keys(statuses).length > 0 || (manualData && manualData.length > 0) || (resData && resData.length > 0)) {
+         setTableStatuses(statuses);
+      } else {
+         // Eğer gerçekten her yer boşsa, boş set et
+         setTableStatuses({});
+      }
     } catch (err) {
       console.error("fetchTableStatuses Critical Error:", err);
       // Hata olsa bile boş status set etmemek için önceki durumu koruyabiliriz veya boş geçebiliriz,
@@ -204,6 +224,7 @@ export default function KitchenPage() {
   }
 
   async function fetchOrders() {
+    // settled (arşivlenmiş/ödenmiş) OLMAYAN tüm siparişleri çek
     const { data, error } = await supabase
       .from('orders')
       .select(`
@@ -214,43 +235,83 @@ export default function KitchenPage() {
           menu_item:menu_items (name)
         )
       `)
-      .neq('status', 'completed')
+      .neq('status', 'settled')
       .order('created_at', { ascending: true });
 
-    if (!error) setOrders(data as Order[] || []);
+    if (!error && data) {
+       // OTO-TEMİZLİK: Çok eski (örn: 24 saatten eski) ve 'completed' statüsündeki siparişleri
+       // otomatik olarak settled yap ki sistem şişmesin.
+       const now = new Date();
+       const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+       
+       const oldCompletedOrders = data.filter(o => 
+          o.status === 'completed' && new Date(o.created_at) < oneDayAgo
+       );
+
+       if (oldCompletedOrders.length > 0) {
+          console.log("Auto-settling old orders:", oldCompletedOrders.length);
+          const oldIds = oldCompletedOrders.map(o => o.id);
+          await supabase.from('orders').update({ status: 'settled' }).in('id', oldIds);
+          // UI güncellenmesi için filtrele
+          setOrders(data.filter(o => !oldIds.includes(o.id)));
+       } else {
+          setOrders(data as Order[]);
+       }
+    }
     setLoading(false);
   }
 
-  async function updateTableStatus(tableNo: string, newStatus: string) {
-    // 1. İyimser Güncelleme (Optimistic Update): Hemen arayüzü güncelle
-    setTableStatuses(prev => ({
-      ...prev,
-      [tableNo]: transitioningToStatus(prev[tableNo] || 'available')
-    }));
-
-    function transitioningToStatus(current: string) {
-      if (assigningReservation) return 'reserved'; // Atama yapıldığında direkt rezerve (Sarı) olmalı
-      // Manuel geçiş: Boş -> Rezerve -> Dolu -> Boş
-      return current === 'available' ? 'reserved' : current === 'reserved' ? 'occupied' : 'available';
-    }
-
+  async function handleTableClick(tableNo: string) {
     if (assigningReservation) {
-      const reservationId = assigningReservation.id;
+      const resId = assigningReservation.id;
       setAssigningReservation(null);
       
-      // Hem rezervasyonu hem de manuel masa durumunu güncelle
       await Promise.all([
-        supabase.from('reservations').update({ table_no: tableNo, status: 'confirmed' }).eq('id', reservationId),
+        supabase.from('reservations').update({ table_no: tableNo, status: 'confirmed' }).eq('id', resId),
         supabase.from('table_status').upsert({ table_no: tableNo, status: 'reserved' })
       ]);
-
+      
       fetchTableStatuses();
       fetchReservations();
       return;
     }
+    
+    setSelectedTable(tableNo);
+    setActiveTab('orders');
+  }
 
-    await supabase.from('table_status').upsert({ table_no: tableNo, status: newStatus });
-    fetchTableStatuses();
+
+  async function handleClearTable() {
+    if (!selectedTable) return;
+    
+    if (!confirm(`Masa ${selectedTable} ödemesi alındı olarak işaretlenecek ve seans kapatılacak. Onaylıyor musunuz?`)) return;
+
+    try {
+      // 1. Masaya ait tüm non-settled siparişleri 'settled' yap
+      const { error: orderError } = await supabase
+        .from('orders')
+        .update({ status: 'settled' })
+        .eq('table_no', selectedTable)
+        .in('status', ['pending', 'preparing', 'served', 'completed']);
+
+      if (orderError) throw orderError;
+
+      // 2. Masayı manuel olarak 'available' yap
+      const { error: statusError } = await supabase
+        .from('table_status')
+        .upsert({ table_no: selectedTable, status: 'available' });
+
+      if (statusError) throw statusError;
+
+      // 3. Verileri tazele
+      await refreshAllData();
+      
+      // 4. Seçimi kaldır (isteğe bağlı, ama kullanıcı diğer masaları görmeye devam edebilir)
+      // setSelectedTable(null); 
+    } catch (err) {
+      console.error("Masa boşaltma hatası:", err);
+      alert("İşlem sırasında bir hata oluştu.");
+    }
   }
 
   async function updateOrderStatus(orderId: string, newStatus: string) {
@@ -358,13 +419,15 @@ export default function KitchenPage() {
                      style = { backgroundColor: '#16a34a', borderColor: '#22c55e', color: '#ffffff' };
                   }
 
-                  return (
-                  <button 
-                     key={tableNo} 
-                     onClick={() => updateTableStatus(tableNo, status === 'available' ? 'reserved' : status === 'reserved' ? 'occupied' : 'available')} 
-                     className="w-full h-full rounded-xl flex flex-col items-center justify-center border-2 transition-all shadow-sm hover:brightness-110 p-1"
-                     style={style}
-                  >
+                   const isSelected = selectedTable === tableNo;
+
+                   return (
+                   <button 
+                      key={tableNo} 
+                      onClick={() => handleTableClick(tableNo)} 
+                      className={`w-full h-full rounded-xl flex flex-col items-center justify-center border-2 transition-all shadow-sm hover:brightness-110 p-1 ${isSelected ? 'ring-4 ring-[#c9a45c] ring-offset-2 ring-offset-[#0a0a0a] scale-105 z-10' : ''}`}
+                      style={style}
+                   >
                      <span className="text-xl md:text-2xl font-bold font-mono tracking-tighter leading-none">{num}</span>
                      <span className="text-[9px] font-bold mt-1 uppercase tracking-wider opacity-90 w-full text-center">{status === 'available' ? 'BOŞ' : status === 'occupied' ? 'DOLU' : 'RZV'}</span>
                   </button>
@@ -422,8 +485,44 @@ export default function KitchenPage() {
                </div>
             ) : activeTab === 'orders' ? (
                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
-                  <AnimatePresence mode="popLayout">
-                  {orders.map((order) => (
+                   <div className="col-span-full mb-6 flex items-center justify-between bg-zinc-900/40 p-4 rounded-xl border border-white/5">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-lg bg-[#c9a45c]/10 flex items-center justify-center text-[#c9a45c]">
+                           <Clock size={20} />
+                        </div>
+                        <div>
+                           <h2 className="text-lg font-serif text-white tracking-widest uppercase">
+                              {selectedTable ? `MASA ${selectedTable} İŞLEMLERİ` : 'TÜM AKTİF SİPARİŞLER'}
+                           </h2>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {selectedTable && orders.some(o => o.table_no === selectedTable) && (
+                           <button 
+                              onClick={handleClearTable}
+                              className="px-4 py-2 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border border-red-500/30 flex items-center gap-2"
+                           >
+                              <Trash2 size={14} /> MASA BOŞALT (ÖDEME AL)
+                           </button>
+                        )}
+                        {selectedTable && (
+                           <button 
+                              onClick={() => setSelectedTable(null)}
+                              className="px-4 py-2 bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border border-white/5"
+                           >
+                              TÜMÜNÜ GÖSTER
+                           </button>
+                        )}
+                      </div>
+                   </div>
+
+                   <AnimatePresence mode="popLayout">
+                   {orders
+                     .filter(order => {
+                        if (selectedTable) return order.table_no === selectedTable;
+                        return order.status !== 'completed';
+                     })
+                     .map((order) => (
                      <motion.div key={order.id} layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="bg-zinc-900/30 backdrop-blur-2xl rounded-2xl border border-white/5 flex flex-col overflow-hidden hover:border-[#c9a45c]/30 transition-colors shadow-lg">
                         <div className="p-5 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
                         <div>
@@ -449,6 +548,31 @@ export default function KitchenPage() {
                   ))}
                   </AnimatePresence>
                   {orders.length === 0 && <div className="col-span-full py-20 flex flex-col items-center opacity-10"><ChefHat size={80} /><p className="mt-4 font-serif italic text-xl tracking-widest">Sipariş yok.</p></div>}
+                  
+                   {selectedTable && (
+                      <div className="col-span-full mt-6 p-6 bg-black/40 rounded-xl border border-[#c9a45c]/30 backdrop-blur-md sticky bottom-0 shadow-2xl z-20">
+                         <div className="flex justify-between items-center mb-4">
+                            <span className="text-zinc-400 font-serif tracking-widest uppercase text-sm">TOPLAM Tutar</span>
+                            <span className="text-3xl font-mono font-bold text-[#c9a45c] drop-shadow-lg">
+                               {orders.filter(o => o.table_no === selectedTable).reduce((sum, o) => sum + (o.total_price || 0), 0)}₺
+                            </span>
+                         </div>
+                         <div className="flex gap-3">
+                            <button 
+                               onClick={() => setSelectedTable(null)}
+                               className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-zinc-300 rounded-xl font-bold uppercase tracking-widest transition-all border border-white/5 text-xs"
+                            >
+                               Kapat
+                            </button>
+                            <button 
+                               onClick={handleClearTable}
+                               className="flex-[2] py-4 bg-gradient-to-r from-red-600 to-red-800 hover:from-red-500 hover:to-red-700 text-white rounded-xl font-bold uppercase tracking-widest transition-all shadow-lg text-xs flex items-center justify-center gap-2"
+                            >
+                               <Trash2 size={16} /> MASA BOŞALT & ÖDE
+                            </button>
+                         </div>
+                      </div>
+                   )}
                </div>
             ) : activeTab === 'reservations' ? (
                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">

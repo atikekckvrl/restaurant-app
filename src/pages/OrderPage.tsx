@@ -82,19 +82,23 @@ export default function OrderPage() {
 
   async function fetchTableStatuses() {
     try {
-      // 1. Manuel durumları çek
       const { data: manualData } = await supabase.from('table_status').select('*');
       
-      // 2. Aktif siparişleri çek (Siparişi olan her zaman 'occupied' görünmeli)
-      const { data: orderData } = await supabase.from('orders').select('table_no').in('status', ['pending', 'preparing', 'served']);
+      const todayString = new Date().toISOString().split('T')[0];
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+      // 2. Aktif veya tamamlanmış ama henüz ödemesi alınmamış (settled olmayan) siparişleri çek
+      // "Session" mantığı: Settled olmayan herhangi bir sipariş masayı dolu gösterir.
+      const { data: orderData } = await supabase.from('orders')
+        .select('table_no')
+        .in('status', ['pending', 'preparing', 'served', 'completed']);
 
       // 3. Rezervasyonları çek (Sadece bugün ve onaylanmış olanlar)
-      const today = new Date().toISOString().split('T')[0];
       const { data: resData } = await supabase
         .from('reservations')
         .select('table_no, res_time, status')
         .in('status', ['confirmed', 'seated'])
-        .eq('res_date', today);
+        .eq('res_date', todayString);
 
       const statuses: Record<string, string> = {};
       
@@ -132,18 +136,24 @@ export default function OrderPage() {
         }
       });
 
-      // 3. Siparişi olanları 'occupied' (dolu) olarak işaretle
-      orderData?.forEach(order => {
-        statuses[order.table_no] = 'occupied';
+      // 3. Manuel Durumlar (Çok yüksek öncelik değil, sipariş varsa ezilecek)
+      manualData?.forEach(row => {
+        if (row.status !== 'available') {
+           statuses[row.table_no] = row.status;
+        }
       });
 
-      // 4. EN YÜKSEK ÖNCELİK: Manuel Durumlar (Kullanıcının tıklaması)
-      // Bu, otomatik durumları ezebilmenizi sağlar.
-      manualData?.forEach(row => {
-        statuses[row.table_no] = row.status;
+      // 4. EN YÜKSEK ÖNCELİK: Siparişi olanları 'occupied' (dolu) olarak işaretle
+      orderData?.forEach(order => {
+        if (order.table_no) statuses[order.table_no] = 'occupied';
       });
       
-      setTableStatuses(statuses);
+      // Sadece veriler mantıklıysa güncelle (Flickering önlemek için)
+      if (Object.keys(statuses).length > 0 || (manualData && manualData.length > 0) || (resData && resData.length > 0)) {
+         setTableStatuses(statuses);
+      } else {
+         setTableStatuses({});
+      }
     } catch (err) {
       console.error("Masa durumları çekilemedi:", err);
     }
