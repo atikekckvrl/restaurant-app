@@ -303,6 +303,13 @@ export default function KitchenPage() {
 
       if (statusError) throw statusError;
 
+      // 3. Varsa bu masaya ait 'seated' (oturmuş) rezervasyonları 'completed' yap
+      await supabase
+        .from('reservations')
+        .update({ status: 'completed' })
+        .eq('table_no', selectedTable)
+        .eq('status', 'seated');
+
       // 3. Verileri tazele
       await refreshAllData();
       
