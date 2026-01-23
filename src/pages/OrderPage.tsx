@@ -85,7 +85,7 @@ export default function OrderPage() {
       const { data: manualData } = await supabase.from('table_status').select('*');
       
       const todayString = new Date().toISOString().split('T')[0];
-      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
 
       // 2. Aktif veya tamamlanmış ama henüz ödemesi alınmamış (settled olmayan) siparişleri çek
       // "Session" mantığı: Settled olmayan herhangi bir sipariş masayı dolu gösterir.
