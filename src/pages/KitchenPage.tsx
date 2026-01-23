@@ -200,6 +200,7 @@ export default function KitchenPage() {
         .from('reservations')
         .select('*')
         .gte('res_date', today)
+        .in('status', ['pending', 'confirmed'])
         .order('res_date', { ascending: true })
         .order('res_time', { ascending: true });
       
