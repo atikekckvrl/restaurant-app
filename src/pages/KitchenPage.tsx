@@ -195,9 +195,11 @@ export default function KitchenPage() {
 
   async function fetchReservations() {
     try {
+      const today = new Date().toISOString().split('T')[0];
       const { data, error } = await supabase
         .from('reservations')
         .select('*')
+        .gte('res_date', today)
         .order('res_date', { ascending: true })
         .order('res_time', { ascending: true });
       
